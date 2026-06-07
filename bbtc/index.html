@@ -320,8 +320,8 @@ input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--
     <button class="aud-close" id="aud-close">✕ Close</button>
   </div>
   <div class="aud-body">
-    <div class="aud-panel"><div class="aud-sec-title">Standings</div><div id="aud-lb"></div></div>
-    <div class="aud-panel"><div class="aud-sec-title">Match results</div><div id="aud-hist"></div></div>
+    <div class="aud-panel"><div class="aud-sec-title">Preliminary Standings</div><div id="aud-lb"></div></div>
+    <div class="aud-panel"><div class="aud-sec-title">Match Results</div><div id="aud-hist"></div></div>
   </div>
 </div>
 
@@ -503,10 +503,21 @@ function generatePDF(){
   const roundOrder=['preliminary','quarterfinals','semifinals','finals'];
   const byRound={};
   done.forEach(m=>{(byRound[m.round]=byRound[m.round]||[]).push(m);});
-  const resultsHTML=roundOrder.filter(r=>byRound[r]).map(r=>byRound[r].map(m=>{
-    const v1=t1Tot(m),v2=t2Tot(m),w=v1>v2?1:v2>v1?2:0;
-    return '<tr><td><span class="pdf-rb">'+RC[r].label+'</span></td><td class="'+(w===1?'pdf-win':'')+'">'+m.t1+'</td><td style="text-align:center"><span class="pdf-score'+(w===1?' w':'')+'">'+v1+'</span></td><td style="text-align:center;color:#6B7280;font-size:11px">'+(w===0?'draw':'vs')+'</td><td style="text-align:center"><span class="pdf-score'+(w===2?' w':'')+'">'+v2+'</span></td><td class="'+(w===2?'pdf-win':'')+'" style="text-align:right">'+m.t2+'</td><td class="pdf-time-cell">'+((m.t1time||m.t2time)?m.t1time+' / '+m.t2time:'')+'</td></tr>';
-  }).join('')).join('');
+  const roundMeta={
+    preliminary:   {label:'Preliminary',   color:'#6B7280',bg:'#F9FAFB'},
+    quarterfinals: {label:'Quarter Finals', color:'#1D4ED8',bg:'#EFF6FF'},
+    semifinals:    {label:'Semi Finals',    color:'#B45309',bg:'#FFFBEB'},
+    finals:        {label:'Finals',         color:'#065F46',bg:'#ECFDF5'},
+  };
+  const resultsHTML=roundOrder.filter(r=>byRound[r]).map(r=>{
+    const rm=roundMeta[r]||roundMeta.preliminary;
+    const header='<tr><td colspan="7" style="padding:10px 8px 4px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:'+rm.color+';background:'+rm.bg+';border-top:2px solid '+rm.color+'20">'+rm.label+'</td></tr>';
+    const rows=byRound[r].map(m=>{
+      const v1=t1Tot(m),v2=t2Tot(m),w=v1>v2?1:v2>v1?2:0;
+      return '<tr style="background:'+rm.bg+'08"><td><span class="pdf-rb" style="color:'+rm.color+';background:'+rm.bg+';border-color:'+rm.color+'40">'+RC[r].label+'</span></td><td class="'+(w===1?'pdf-win':'')+'">'+m.t1+'</td><td style="text-align:center"><span class="pdf-score'+(w===1?' w':'')+'">'+v1+'</span></td><td style="text-align:center;color:#6B7280;font-size:11px">'+(w===0?'draw':'vs')+'</td><td style="text-align:center"><span class="pdf-score'+(w===2?' w':'')+'">'+v2+'</span></td><td class="'+(w===2?'pdf-win':'')+'" style="text-align:right">'+m.t2+'</td><td class="pdf-time-cell">'+((m.t1time||m.t2time)?m.t1time+' / '+m.t2time:'')+'</td></tr>';
+    }).join('');
+    return header+rows;
+  }).join('');
   const footer='<div class="pdf-footer"><span>Brunei Barista Team Championship'+(S.eventVenue?' · '+S.eventVenue:'')+'</span><span>Exported '+dateStr+' at '+timeStr+'</span></div>';
   const logoSub=eventMeta?'<div style="font-size:11px;color:#6B7280;margin-top:5px">'+eventMeta+'</div>':'';
   document.getElementById('pdf-content').innerHTML='<div class="pdf-page"><div class="pdf-logo-row"><div><div class="pdf-event-sub">Brunei</div><div class="pdf-event-name">Barista Team Championship</div>'+logoSub+'</div><div class="pdf-meta"><div>Preliminary Standings</div><div>'+dateStr+'</div><div style="color:#D97706">QF Spots: Top '+S.qfSlots+'</div></div></div><div class="pdf-section-title">Preliminary Standings</div><table class="pdf-lb-table"><thead><tr><th>#</th><th>Team</th><th style="text-align:center">Record</th><th style="text-align:center">Played</th><th style="text-align:right">Points</th></tr></thead><tbody>'+(lbRows||'<tr><td colspan="5" style="text-align:center;color:#6B7280;padding:20px">No teams registered.</td></tr>')+'</tbody></table>'+footer+'</div><div class="pdf-page"><div class="pdf-logo-row"><div><div class="pdf-event-sub">Brunei</div><div class="pdf-event-name">Barista Team Championship</div>'+logoSub+'</div><div class="pdf-meta"><div>Match Results</div><div>'+dateStr+'</div><div>'+done.length+' matches completed</div></div></div><div class="pdf-section-title">Match Results</div><table class="pdf-res-table"><thead><tr><th>Round</th><th>Team 1</th><th style="text-align:center">Score</th><th style="text-align:center"></th><th style="text-align:center">Score</th><th style="text-align:right">Team 2</th><th style="text-align:center">Time</th></tr></thead><tbody>'+(resultsHTML||'<tr><td colspan="7" style="text-align:center;color:#6B7280;padding:20px">No completed matches yet.</td></tr>')+'</tbody></table>'+footer+'</div>';
@@ -558,10 +569,17 @@ function showAudience(){
     const isQF=(i+1)<=S.qfSlots,showCut=i===S.qfSlots-1&&S.qfSlots<lb.length;
     return '<div class="aud-lb-row'+(isQF?' qf':'')+'"><div class="aud-rnk" style="'+rnkSt(i)+'">'+(i+1)+'</div><div class="aud-name">'+s.t+'</div>'+(s.played>0?'<div class="aud-rec">'+s.wins+'W/'+( s.played-s.wins)+'L<br><span style="font-size:10px">'+s.played+' played</span></div>':'')+'<div class="aud-pts-wrap"><div class="aud-pts">'+s.pts+'</div><div class="aud-ptsl">pts</div></div>'+(isQF?'<div class="aud-qf-pill">QF ✓</div>':'<div style="width:48px"></div>')+'</div>'+(showCut?'<div class="aud-cut">QF cut — top '+S.qfSlots+' advance</div>':'');
   }).join(''):'<div style="text-align:center;padding:2.5rem;color:#9CA3AF">No teams yet.</div>';
+  const roundStyle={
+    preliminary: {rb:'background:#F3F4F6;border-color:#E5E7EB;color:#6B7280', row:'background:#fff;border-color:#E5E7EB'},
+    quarterfinals:{rb:'background:#DBEAFE;border-color:#93C5FD;color:#1D4ED8', row:'background:#EFF6FF;border-color:#93C5FD'},
+    semifinals:   {rb:'background:#FEF3C7;border-color:#F59E0B;color:#B45309', row:'background:#FFFBEB;border-color:#FCD34D'},
+    finals:       {rb:'background:#D1FAE5;border-color:#6EE7B7;color:#065F46', row:'background:#ECFDF5;border-color:#6EE7B7'},
+  };
   document.getElementById('aud-hist').innerHTML=done.length?done.map(m=>{
     const v1=t1Tot(m),v2=t2Tot(m),w=v1>v2?1:v2>v1?2:0;
     const c1=w===1?'#B45309':'#374151',c2=w===2?'#B45309':'#374151';
-    return '<div class="aud-h-row"><div class="aud-h-rb">'+RC[m.round].label+'</div><div style="flex:1;font-size:14px;font-weight:'+(w===1?700:500)+';color:'+c1+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.t1+'</div><div style="font-size:23px;font-weight:700;color:'+c1+';flex-shrink:0">'+v1+'</div><div style="font-size:11px;color:#9CA3AF;padding:0 4px;flex-shrink:0">'+(w===0?'draw':'vs')+'</div><div style="font-size:23px;font-weight:700;color:'+c2+';flex-shrink:0">'+v2+'</div><div style="flex:1;font-size:14px;font-weight:'+(w===2?700:500)+';color:'+c2+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right">'+m.t2+'</div>'+((m.t1time||m.t2time)?'<div class="aud-h-time">⏱ '+(m.t1time||'—')+' / '+(m.t2time||'—')+'</div>':'')+'</div>';
+    const rs=roundStyle[m.round]||roundStyle.preliminary;
+    return '<div class="aud-h-row" style="'+rs.row+';border:1.5px solid;border-radius:8px;margin-bottom:8px"><div class="aud-h-rb" style="'+rs.rb+';border:1.5px solid;border-radius:4px;font-size:9px;padding:2px 8px;white-space:nowrap;flex-shrink:0;text-transform:uppercase;letter-spacing:.06em;font-weight:700">'+RC[m.round].label+'</div><div style="flex:1;font-size:14px;font-weight:'+(w===1?700:500)+';color:'+c1+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.t1+'</div><div style="font-size:23px;font-weight:700;color:'+c1+';flex-shrink:0">'+v1+'</div><div style="font-size:11px;color:#9CA3AF;padding:0 4px;flex-shrink:0">'+(w===0?'draw':'vs')+'</div><div style="font-size:23px;font-weight:700;color:'+c2+';flex-shrink:0">'+v2+'</div><div style="flex:1;font-size:14px;font-weight:'+(w===2?700:500)+';color:'+c2+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right">'+m.t2+'</div>'+((m.t1time||m.t2time)?'<div class="aud-h-time">⏱ '+(m.t1time||'—')+' / '+(m.t2time||'—')+'</div>':'')+'</div>';
   }).join(''):'<div style="text-align:center;padding:2.5rem;color:#9CA3AF">No results yet.</div>';
   document.getElementById('aud-overlay').classList.add('show');
 }
@@ -622,7 +640,7 @@ function rBracket(){
     const t1class=slot.winner&&slot.t1===slot.winner?' winner':slot.loser&&slot.t1===slot.loser?' loser':'';
     const t2class=slot.winner&&slot.t2===slot.winner?' winner':slot.loser&&slot.t2===slot.loser?' loser':'';
     let footer='';
-    if(m&&m.done){footer='<div class="bslot-footer"><span class="bslot-status winner-label">🏆 '+slot.winner+' advances</span></div>';}
+    if(m&&m.done){footer='<div class="bslot-footer"><span class="bslot-status winner-label">🏆 '+slot.winner+' advances</span><button class="btn-ed" data-sid="'+m.id+'">Edit</button></div>';}
     else if(m&&!m.done){footer='<div class="bslot-footer"><span class="bslot-status awaiting">In progress</span><button class="btn-sc" data-sid="'+m.id+'">Score ▶</button></div>';}
     else if(slot.t1&&slot.t2&&!slot.matchId&&!picking){footer='<div class="bslot-footer"><span class="bslot-status awaiting">Ready to score</span><button class="btn-sc" data-bpick="'+slot.id+'">▶ Start Match</button></div>';}
     else if(slot.t1&&slot.t2&&picking){
