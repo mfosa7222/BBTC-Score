@@ -487,6 +487,7 @@ function rSetup() {
     + (S.participants.length ? '<div class="p-list">'+S.participants.map((p,i)=>'<div class="p-item"><span class="p-seed">'+(i+1)+'</span><span class="p-name">'+p.name+'</span><button class="p-rm" data-prm="'+p.name+'">×</button></div>').join('')+'</div>' : '<p class="hint" style="margin-top:10px">No participants yet.</p>')
     + '</div></div>'
 
+    +'<div style="margin-top:.25rem;padding:.9rem 1rem;background:#F5F3FF;border:2px dashed #C4B5FD;border-radius:var(--rad);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+'<div><div style="font-size:13px;font-weight:700;color:#6D28D9;margin-bottom:2px">🎮 Demo mode</div>'+'<p class="hint">12 participants · Redemption active · Round 3 in progress. Girls Got Drip format.</p></div>'+'<button style="padding:7px 16px;border-radius:var(--rad-s);border:1.5px solid #C4B5FD;background:#6D28D9;color:#fff;font-size:12px;font-weight:700;cursor:pointer" id="load-demo">Load Demo</button></div>'
     + '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
     + '<button class="btn-p" id="gen-bracket"'+(canGen?'':' disabled')+'>▶ Generate bracket &amp; start</button>'
     + (canGen ? '<span class="hint">'+S.participants.length+' participants · '+Math.ceil(S.participants.length/2)+' matches in round 1'+(S.participants.length%2?' + 1 bye':'')+'</span>' : '<span class="hint">Add at least 2 participants.</span>')
@@ -704,6 +705,67 @@ function bind() {
     render();
   }));
   on('sm-cancel','click', closeScoring);
+  on('load-demo','click',()=>{if(confirm('Load demo data? This will replace your current data.')){loadThrowdownDemo();render();}});
+}
+
+
+/* ── Demo data ── */
+function buildThrowdownDemo(){
+  // Girls Got Drip Vol. 0 style — 12 participants, redemption R1 cap 4
+  // Round 1 done, Redemption done, Round 3 in progress (2 matches done, 2 pending + 1 bye)
+  const participants=[
+    {name:'Aliya Roslan'},{name:'Darwisyah'},{name:'Seri Anindita'},{name:'Husna Azlan'},
+    {name:'Nadia Syakira'},{name:'Fatin Najwa'},{name:'Raihana Malik'},{name:'Zulfiqah'},
+    {name:'Amirah Suffian'},{name:'Norafiza'},{name:'Syaza Irdina'},{name:'Nur Haziqah'},
+  ];
+  const bracket={
+    rounds:[
+      {
+        label:'Round 1',phase:'main',roundNum:1,
+        pairs:[
+          {id:'d0',t1:'Aliya Roslan',t2:'Darwisyah',bye:false,winner:'Aliya Roslan',loser:'Darwisyah',votes1:2,votes2:1},
+          {id:'d1',t1:'Seri Anindita',t2:'Husna Azlan',bye:false,winner:'Seri Anindita',loser:'Husna Azlan',votes1:3,votes2:0},
+          {id:'d2',t1:'Nadia Syakira',t2:'Fatin Najwa',bye:false,winner:'Nadia Syakira',loser:'Fatin Najwa',votes1:2,votes2:1},
+          {id:'d3',t1:'Raihana Malik',t2:'Zulfiqah',bye:false,winner:'Zulfiqah',loser:'Raihana Malik',votes1:1,votes2:2},
+          {id:'d4',t1:'Amirah Suffian',t2:'Norafiza',bye:false,winner:'Amirah Suffian',loser:'Norafiza',votes1:3,votes2:0},
+          {id:'d5',t1:'Syaza Irdina',t2:'Nur Haziqah',bye:false,winner:'Syaza Irdina',loser:'Nur Haziqah',votes1:2,votes2:1},
+        ]
+      },
+      {
+        label:'Redemption Round 1',phase:'redemption',roundNum:1,
+        pairs:[
+          {id:'d6',t1:'Darwisyah',t2:'Husna Azlan',bye:false,winner:'Husna Azlan',loser:'Darwisyah',votes1:1,votes2:2},
+          {id:'d7',t1:'Fatin Najwa',t2:'Raihana Malik',bye:false,winner:'Fatin Najwa',loser:'Raihana Malik',votes1:2,votes2:1},
+          {id:'d8',t1:'Norafiza',t2:'Nur Haziqah',bye:false,winner:'Norafiza',loser:'Nur Haziqah',votes1:2,votes2:1},
+        ]
+      },
+      {
+        // 6 R1 winners + 3 redemption winners = 9 → 4 pairs + 1 bye
+        label:'Round 3',phase:'main',roundNum:2,
+        pairs:[
+          {id:'d9', t1:'Aliya Roslan',t2:'Husna Azlan',bye:false,winner:'Aliya Roslan',loser:'Husna Azlan',votes1:2,votes2:1},
+          {id:'d10',t1:'Fatin Najwa',t2:'Seri Anindita',bye:false,winner:'Fatin Najwa',loser:'Seri Anindita',votes1:2,votes2:1},
+          {id:'d11',t1:'Nadia Syakira',t2:'Norafiza',bye:false,winner:null,loser:null,votes1:0,votes2:0},
+          {id:'d12',t1:'Zulfiqah',t2:'Amirah Suffian',bye:false,winner:null,loser:null,votes1:0,votes2:0},
+          {id:'d13',t1:'Syaza Irdina',t2:null,bye:true,winner:'Syaza Irdina',loser:null,votes1:0,votes2:0},
+        ]
+      },
+    ],
+    mainPool:[],redemptionPool:[],phase:'main',currentRound:0,mainRoundsDone:1,
+    wildCards:{},pendingWildCard:null,pendingWildCardLosers:[],
+  };
+  return{
+    eventName:'Girls Got Drip Vol. 0',eventDate:'16 June 2025',eventVenue:'&Coffee Bandar',
+    judges:3,redemption:true,redemptionRounds:{r1:true,r2:false},redemptionCap:4,wildCard:false,
+    participants,bracket,matches:[],tab:'bracket',scoringMatchId:null,
+  };
+}
+
+function loadThrowdownDemo(){
+  const d=buildThrowdownDemo();
+  Object.assign(S,d);
+  mid=14;
+  STORE.save({...S,_mid:mid});
 }
 
 render();

@@ -388,6 +388,74 @@ function loadState(){
 }
 loadState();
 
+/* ── Demo data ── */
+function demoMatch(id,round,t1,t2,jp1,jp2,fast1,fast2,t1t,t2t,sig1,sig2){
+  const n=round==='preliminary'?15:20;
+  const d=Array.from({length:n},()=>[0,0]);
+  let r1=jp1,r2=jp2;
+  for(let i=0;i<n;i++){
+    const left=n-i;
+    const g1=Math.min(3,Math.max(0,Math.round(r1/left)));
+    const g2=Math.min(3-g1,Math.max(0,Math.round(r2/left)));
+    d[i]=[g1,g2];r1-=g1;r2-=g2;
+  }
+  for(let i=0;i<n&&(r1>0||r2>0);i++){
+    if(r1>0&&d[i][0]+d[i][1]<3){const a=Math.min(r1,3-d[i][0]-d[i][1]);d[i][0]+=a;r1-=a;}
+    if(r2>0&&d[i][0]+d[i][1]<3){const a=Math.min(r2,3-d[i][0]-d[i][1]);d[i][1]+=a;r2-=a;}
+  }
+  return{id:String(id),round,t1,t2,jids:['0','1','2'],drinks:d,
+    s1:{fastest:fast1,sigBev:sig1||false},s2:{fastest:fast2,sigBev:sig2||false},
+    t1time:t1t,t2time:t2t,done:true,bracketSlot:null};
+}
+
+function buildBBTCDemo(){
+  const teams=['Kopi Warisan','Bandar Blend','Seria Brew Co.','Gadong Roasters','Kiulap Collective','Rimba Republic','Temu Kopi','Sungai Kafe'];
+  const judges=[{id:'0',name:'Ahmad Zaki'},{id:'1',name:'Siti Hajar'},{id:'2',name:'Marcus Lim'}];
+  // 12 prelim matches — standings: 1.KW(92,3W) 2.BB(92,2W) 3.SC(91,3W) 4.GR(75,2W) 5.KC(53,1W) 6.TK(47,0W) 7.RR(41,0W) 8.SK(38,1W)
+  const matches=[
+    demoMatch(0,'preliminary','Kopi Warisan','Temu Kopi',28,12,false,false,'8:14','9:42'),
+    demoMatch(1,'preliminary','Gadong Roasters','Sungai Kafe',25,14,true,false,'7:55','9:18'),
+    demoMatch(2,'preliminary','Seria Brew Co.','Kiulap Collective',26,15,false,true,'8:44','8:01'),
+    demoMatch(3,'preliminary','Bandar Blend','Rimba Republic',24,16,false,false,'9:02','9:33'),
+    demoMatch(4,'preliminary','Kopi Warisan','Kiulap Collective',27,13,true,false,'7:48','9:11'),
+    demoMatch(5,'preliminary','Gadong Roasters','Bandar Blend',23,18,false,false,'8:30','8:22'),
+    demoMatch(6,'preliminary','Seria Brew Co.','Rimba Republic',29,10,true,false,'7:38','9:55'),
+    demoMatch(7,'preliminary','Bandar Blend','Temu Kopi',22,17,false,false,'8:58','9:27'),
+    demoMatch(8,'preliminary','Kopi Warisan','Gadong Roasters',22,17,false,true,'8:05','7:59'),
+    demoMatch(9,'preliminary','Seria Brew Co.','Bandar Blend',21,18,false,true,'8:17','8:10'),
+    demoMatch(10,'preliminary','Kiulap Collective','Rimba Republic',20,15,false,false,'9:14','9:38'),
+    demoMatch(11,'preliminary','Temu Kopi','Sungai Kafe',18,19,false,false,'9:20','9:05'),
+    // QF matches — QF1 and QF2 done, QF3 and QF4 pending
+    demoMatch(12,'quarterfinals','Kopi Warisan','Sungai Kafe',28,11,true,false,'7:42','9:58'),
+    demoMatch(13,'quarterfinals','Seria Brew Co.','Temu Kopi',25,14,false,false,'8:11','9:30',true,false),
+  ];
+  const bracket={
+    qf:[
+      {id:'qf1',label:'QF 1',seeds:[1,8],t1:'Kopi Warisan',t2:'Sungai Kafe',matchId:'12',winner:'Kopi Warisan',loser:'Sungai Kafe',from:[]},
+      {id:'qf2',label:'QF 2',seeds:[3,6],t1:'Seria Brew Co.',t2:'Temu Kopi',matchId:'13',winner:'Seria Brew Co.',loser:'Temu Kopi',from:[]},
+      {id:'qf3',label:'QF 3',seeds:[4,5],t1:'Gadong Roasters',t2:'Kiulap Collective',matchId:null,winner:null,loser:null,from:[]},
+      {id:'qf4',label:'QF 4',seeds:[2,7],t1:'Bandar Blend',t2:'Rimba Republic',matchId:null,winner:null,loser:null,from:[]},
+    ],
+    sf:[
+      {id:'sf1',label:'SF 1',seeds:[],t1:'Kopi Warisan',t2:'Seria Brew Co.',matchId:null,winner:null,loser:null,from:['qf1','qf2']},
+      {id:'sf2',label:'SF 2',seeds:[],t1:null,t2:null,matchId:null,winner:null,loser:null,from:['qf3','qf4']},
+    ],
+    final:{id:'final',label:'Final',seeds:[],t1:null,t2:null,matchId:null,winner:null,loser:null,from:['sf1','sf2']},
+    third:{id:'third',label:'3rd Place',seeds:[],t1:null,t2:null,matchId:null,winner:null,loser:null,from:['sf1','sf2']},
+  };
+  return{teams,judges,matches,bracket,qfSlots:8,eventDate:'16 June 2025',eventVenue:'Grey Matter Coffee Werks'};
+}
+
+function loadBBTCDemo(){
+  const d=buildBBTCDemo();
+  S.teams=d.teams;S.judges=d.judges;S.matches=d.matches;S.bracket=d.bracket;
+  S.qfSlots=d.qfSlots;S.eventDate=d.eventDate;S.eventVenue=d.eventVenue;
+  S.tab='prelims';S.sid=null;S.creating=false;S.bracketPicking=null;S.bracketJids=[];
+  S.nm={t1:'',t2:'',round:'preliminary',jids:[]};
+  mid=14;jid=3;
+  saveState();
+}
+
 /* ── Leaderboard — PRELIMINARY ONLY ── */
 function calcPrelimLB(){
   return S.teams.map(t=>{
@@ -602,7 +670,7 @@ function rMain(){
 function rSetup(){
   return '<div class="card"><div class="ch">Event info <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:9px">(optional)</span></div><div class="cb"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label class="cf-lbl">Date</label><input id="evdate" type="text" value="'+S.eventDate+'" placeholder="e.g. 14 June 2025"/></div><div><label class="cf-lbl">Venue</label><input id="evvenue" type="text" value="'+S.eventVenue+'" placeholder="e.g. Hua Ho Mall Manggis"/></div></div></div></div>'
   +'<div class="card"><div class="ch">Teams — '+S.teams.length+' registered</div><div class="cb"><div class="ir"><input id="tinp" type="text" placeholder="Team name…" style="width:auto"/><button class="btn-p" id="addt">Add</button></div>'+(S.teams.length?'<div class="chips">'+S.teams.map((t,i)=>'<div class="chip"><span class="cn">'+(i+1)+'</span><span>'+t+'</span><button class="cx" data-rmt="'+t+'">×</button></div>').join('')+'</div>':'<p class="hint" style="margin-top:10px">No teams yet.</p>')+'</div></div>'
-  +'<div class="card"><div class="ch">Judge pool — '+S.judges.length+' judges</div><div class="cb"><div class="ir"><input id="jinp" type="text" placeholder="Judge name…" style="width:auto"/><button class="btn-p" id="addj">Add</button></div>'+(S.judges.length?'<div class="chips" style="margin-top:10px">'+S.judges.map(j=>'<div class="chip"><span>'+j.name+'</span><button class="cx" data-rmj="'+j.id+'">×</button></div>').join('')+'</div>':'<p class="hint" style="margin-top:10px">No judges yet.</p>')+(S.judges.length>0&&S.judges.length<3?'<p class="hint" style="margin-top:10px;color:var(--rd)">Add at least 3 judges.</p>':'')+'</div></div>';
+  +'<div class="card"><div class="ch">Judge pool — '+S.judges.length+' judges</div><div class="cb"><div class="ir"><input id="jinp" type="text" placeholder="Judge name…" style="width:auto"/><button class="btn-p" id="addj">Add</button></div>'+(S.judges.length?'<div class="chips" style="margin-top:10px">'+S.judges.map(j=>'<div class="chip"><span>'+j.name+'</span><button class="cx" data-rmj="'+j.id+'">×</button></div>').join('')+'</div>':'<p class="hint" style="margin-top:10px">No judges yet.</p>')+(S.judges.length>0&&S.judges.length<3?'<p class="hint" style="margin-top:10px;color:var(--rd)">Add at least 3 judges.</p>':'')+'</div></div>'+'<div style="margin-top:.5rem;padding:.9rem 1rem;background:#F5F3FF;border:2px dashed #C4B5FD;border-radius:var(--rad);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+'<div><div style="font-size:13px;font-weight:700;color:#6D28D9;margin-bottom:2px">🎮 Demo mode</div>'+'<p class="hint">8 teams &middot; 12 prelim matches &middot; QF in progress. Safe to explore.</p></div>'+'<button style="padding:7px 16px;border-radius:var(--rad-s);border:1.5px solid #C4B5FD;background:#6D28D9;color:#fff;font-size:12px;font-weight:700;cursor:pointer" id="load-demo">Load Demo</button></div>';
 }
 
 function rPrelims(){
