@@ -1,120 +1,123 @@
-# Changelog
+# Changelog — Seduh Score
 
-All notable changes to the Brunei Barista Team Championship Organizer are documented here.
+All notable changes to the Seduh Score coffee competition platform are documented here.
+
+---
+
+## [3.0.0] — Platform Launch: Seduh Score
+
+### Changed
+- **Project renamed** from BBTC-Score to **Seduh Score** — a multi-module coffee competition platform.
+- Architecture restructured into modular layout:
+  ```
+  seduh-score/
+  ├── index.html          ← dashboard launcher
+  ├── bbtc/index.html     ← BBTC module (unchanged)
+  ├── throwdown/index.html← Throwdown 1v1 module (new)
+  └── shared/
+      ├── theme.css       ← unified design system
+      ├── timer.js        ← shared timer component
+      ├── audience.js     ← shared audience overlay
+      └── storage.js      ← localStorage wrapper
+  ```
+- Shared components extracted so timer, audience view, and storage are reusable across all modules with no code duplication.
+
+### Added
+- **Dashboard landing page** (`index.html`) — module selector with BBTC, Throwdown 1v1, and Liga Seduh (coming soon).
+- **Throwdown 1v1 module** — individual competitor knockout bracket with:
+  - 3–5 judges per match (configurable via slider; odd number recommended to avoid ties)
+  - Randomized bracket generation with automatic bye assignment for odd participant counts
+  - **Redemption round** — optional, configurable per round (Round 1, Round 2). Losers from selected rounds compete in a redemption bracket. Winners are randomized back into the main bracket. No redemption from QF and above.
+  - Score entry via judge vote count (0 to N per competitor, constrained to total judges)
+  - Auto-advance winners and auto-trigger redemption rounds
+  - Champion display when bracket is complete
+  - Audience view, standings, history, and timer — all shared components
+  - Full localStorage persistence with reset option
+  - Event name, date, and venue fields
+
+---
+
+## [2.0.0] — Bracket Engine, Timer & Design Overhaul (BBTC)
+
+### Changed
+- Colour system redesigned for WCAG AA contrast. Font switched to system-ui.
+- Standings tab shows Preliminary round only (`calcPrelimLB()`).
+- Tabs reorganised: Setup · Prelims · Bracket · History · Standings.
+- localStorage key updated to `bbtc_v3`.
+
+### Added
+- Bracket engine with flexible seeding (8+ → QF, 4–7 → SF, 2–3 → Final).
+- Bracket tab with visual slots and inline judge picking.
+- ⏱ Timer overlay with 5/10/15 min presets and fullscreen mode.
+- Auto-advancement of bracket winners after match finalisation.
 
 ---
 
 ## [1.6.0] — Audience View Refresh & CSV Export
 
 ### Changed
-- **Audience view** redesigned from dark theme to a clean light theme — white cards on warm off-white background, dark text, amber accents, and subtle card shadows. Significantly easier to read on projectors and large screens.
-- QF-qualified rows in audience view now use a left green border stripe for stronger visual distinction.
+- Audience view redesigned to light theme.
 
 ### Added
-- **Export CSV** button (📊) in the main header. Downloads a single `.csv` file containing three sections:
-  - **Leaderboard** — rank, team, W/L record, total points, QF qualified flag
-  - **Match Results** — one row per match with round, judge points, bonus flags, grand totals, and finish times for both teams
-  - **Cup-by-Cup Scores** — full token breakdown per drink (D1–D15 or D20) for every completed match
-- File is UTF-8 BOM encoded for seamless opening in Microsoft Excel on Windows.
-- File name auto-includes event date if set (e.g. `BBTC_Results_14_June_2025.csv`).
+- CSV export with leaderboard, match summary, and cup-by-cup data.
 
 ---
 
 ## [1.5.0] — Auto Winner Bonus & Event Info
 
 ### Changed
-- **Round winner bonus (+5)** is now awarded automatically to the team with the higher judge token count. The manual winner checkbox has been removed.
-- Winner indicator in the scoring view displays as a read-only auto-checked row that activates as scores are entered.
-- Fastest team bonus (+2) remains manually toggled and stays mutually exclusive between the two teams.
+- Round winner bonus (+5) awarded automatically to team with more tokens.
 
 ### Added
-- **Event info card** in Setup tab with optional Date and Venue text fields.
-- Date and venue appear as a subtitle line on both pages of the PDF export.
-- Date and venue persist to localStorage alongside all other state.
+- Event date and venue in Setup. Both appear in PDF export.
 
 ---
 
 ## [1.4.0] — PDF Export & localStorage Persistence
 
 ### Added
-- **Export PDF** button (📄) in the main header.
-- Generates a print-ready A4 preview overlay with two pages:
-  - Page 1: Final Standings table with QF cutline and qualifying indicators
-  - Page 2: Match Results grouped by round, with winner highlighted and finish times
-- `@media print` CSS hides all UI chrome — only the two A4 pages are printed.
-- **localStorage persistence** — all competition data (teams, judges, matches, scores, QF slots) survives page refresh or tab close.
-- **↺ Reset button** in header clears all data after confirmation dialog.
-
-### Fixed
-- Audience view now renders as an in-page full-screen overlay instead of attempting `window.open()`, which was blocked by browser popup blockers.
+- A4 PDF export. localStorage persistence. Reset button. Audience overlay fix.
 
 ---
 
-## [1.3.0] — Scoring Logic Overhaul & Time Recording
+## [1.3.0] — Scoring Logic Overhaul
 
 ### Changed
-- **Scoring grid rebuilt** around correct head-to-head token logic. Each drink row now shows **0 / 1 / 2 / 3** buttons per team. The combined tokens across both teams for any single drink cannot exceed 3 — the opposing team's higher options are automatically disabled.
-- Replaced previous per-team judge token columns (which allowed 6 tokens per cup) with the shared constraint model.
+- 0/1/2/3 button scoring with shared token constraint per cup.
 
 ### Added
-- **Token usage counter** in the scoring header showing `X/45` or `X/60` used, turning red if the cap is exceeded.
-- **Finish time fields** for both teams at the top of each scoring view (e.g. `8:42`). Times do not trigger a re-render while typing so focus is never lost.
-- Finish times shown in the History tab alongside match scores.
+- Token counter, finish time fields.
 
 ---
 
-## [1.2.0] — Audience View & Leaderboard QF Highlight Fix
+## [1.2.0] — Audience View
 
 ### Added
-- **📺 Audience view** — full-screen overlay showing a live leaderboard and match results side by side, designed for projection on a large screen. Refreshes from live data every time it is opened.
-- Audience view includes amber/blue winner colouring, finish times, and QF cutline.
-
-### Fixed
-- Leaderboard QF highlight now uses explicit dark teal text (`#085041`) on the light green background, replacing the previous washed-out white text that was unreadable.
+- Audience overlay for projector display. QF highlight contrast fix.
 
 ---
 
-## [1.1.0] — Manual Match Creation, Judge Pool & History
+## [1.1.0] — Manual Match Creation
 
 ### Changed
-- **Removed** auto match generation. All matches are now created manually.
-- **Create match form** lets the organizer select the round, Team 1, Team 2, and exactly 3 judges from the pool for each match individually.
-- Each match stores its own assigned judges; scoring grids display those judge names.
+- Removed auto match generation. Manual match creation with judge pool.
 
 ### Added
-- **Judge pool** in Setup — add as many judges as needed; the pool is shared across all matches.
-- **History tab** — shows all finalised matches with round label, both team scores, and winner highlighted. Draws labelled as "draw".
-- **Leaderboard tab** — ranks all teams by cumulative points with W/L record and matches played.
-- **QF spots input** on the Leaderboard — set how many teams advance to quarter finals. Qualifying rows are highlighted green with a "QF ✓" badge. A cutline appears after the last qualifying position.
-- Match list shows a round label badge on each match card.
+- History tab, Leaderboard with QF cutline.
 
 ---
 
-## [1.0.0] — Initial Release
+## [1.0.0] — Initial Release (BBTC)
 
 ### Added
-- **Setup tab** — register teams and judges (3 judges per match).
-- **Round configuration** — Preliminary (15 drinks, 10 min, max 45 pts) and Quarter Finals / Semi Finals / Finals (20 drinks, 15 min, max 60 pts).
-- **Match generation** — auto-pairs registered teams randomly for the selected round.
-- **Scoring view** — per-team drink grids with judge token toggles (0 or 1 per judge per drink). Per-team column and row totals.
-- **Bonus points** — Fastest team (+2, manual, mutually exclusive), Round winner (+5, manual, mutually exclusive), Signature beverage (+2, Quarter Finals and beyond only).
-- **Grand total** display per team in scoring view.
-- **Matches tab** — shows all matches with status (pending / complete), scores, and winner badge.
-- **Finalise match** saves result and returns to Matches tab.
-- Edit button re-opens any completed match for correction.
+- BBTC team scoring: setup, manual matches, cup-by-cup scoring, bonuses.
 
 ---
 
-## Scoring Reference
+## Modules
 
-| Round | Drinks | Time | Max Judge Pts | Max Total (with all bonuses) |
-|---|---|---|---|---|
-| Preliminary | 15 | 10 min | 45 | 52 |
-| Quarter Finals | 20 | 15 min | 60 | 69 |
-| Semi Finals | 20 | 15 min | 60 | 69 |
-| Finals | 20 | 15 min | 60 | 69 |
-
-**Bonus points**
-- +2 Fastest team (manual, one team per match)
-- +5 Round winner (auto — awarded to team with more judge tokens)
-- +2 Signature beverage (Quarter Finals and beyond, manual)
+| Module | Status | Description |
+|---|---|---|
+| BBTC | ✅ Live | Brunei Barista Team Championship — team head-to-head with seeded bracket |
+| Throwdown 1v1 | ✅ Live | Individual knockout bracket with optional redemption round |
+| Liga Seduh | 🔜 Planned | Round robin league — full season standings and scheduling |

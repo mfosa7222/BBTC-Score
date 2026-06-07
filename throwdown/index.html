@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Throwdown 1v1 — Seduh Score</title>
+<link rel="stylesheet" href="../shared/theme.css">
+<style>
+/* ── Throwdown-specific styles ── */
+.app{max-width:900px;margin:0 auto;padding:0 0 60px}
+.hdr-btns{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.hdr-btn{display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:var(--rad-s);font-size:12px;cursor:pointer;font-weight:600;border:1.5px solid}
+.body{padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:1rem}
+/* Setup */
+.judge-range{display:flex;align-items:center;gap:12px}
+.judge-range input[type=range]{flex:1;accent-color:var(--am)}
+.judge-count-display{font-size:22px;font-weight:700;color:var(--am);width:32px;text-align:center}
+/* Redemption config */
+.redemption-row{display:flex;align-items:flex-start;gap:12px;padding:.75rem;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rad-s)}
+.big-check{width:20px;height:20px;accent-color:var(--am);cursor:pointer;flex-shrink:0;margin-top:2px}
+.round-checks{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.round-check-item{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--txt2)}
+.round-check-item.disabled-check{opacity:.35;cursor:not-allowed}
+.round-check-item input{accent-color:var(--am)}
+/* Participant entry */
+.p-list{display:flex;flex-direction:column;gap:5px;margin-top:8px;max-height:260px;overflow-y:auto}
+.p-item{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rad-s)}
+.p-seed{font-size:11px;color:var(--txt3);width:20px;text-align:center;font-weight:700}
+.p-name{flex:1;font-size:13px;font-weight:600}
+.p-rm{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:15px;line-height:1;padding:0}
+/* Bracket */
+.bracket-section{margin-bottom:1.25rem}
+.bslot{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rad);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:8px}
+.bslot.active{border-color:var(--am-bd);border-left:4px solid var(--am)}
+.bslot.done{border-color:var(--gn-bd);border-left:4px solid var(--gn)}
+.bslot.redemption{border-color:var(--pu-bd);border-left:4px solid var(--pu)}
+.bslot.redemption.active{border-color:var(--pu-bd)}
+.bslot-hdr{display:flex;align-items:center;justify-content:space-between;padding:.4rem .85rem;background:var(--bg);border-bottom:1.5px solid var(--border2);font-size:11px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.08em}
+.bslot-teams{padding:.6rem .85rem;display:flex;flex-direction:column;gap:4px}
+.bslot-team{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:var(--rad-s)}
+.bslot-team.winner-row{background:var(--gn-bg)}
+.bslot-seed{font-size:10px;color:var(--txt3);width:22px;text-align:center;font-weight:700;background:var(--bg);border-radius:3px;padding:1px 3px;border:1px solid var(--border);flex-shrink:0}
+.bslot-name{flex:1;font-size:13px;font-weight:600;color:var(--txt)}
+.bslot-name.tbd{color:var(--txt3);font-style:italic;font-weight:400}
+.bslot-name.winner{color:var(--gn);font-weight:700}
+.bslot-name.loser{color:var(--txt3);font-weight:400}
+.bslot-votes{font-size:14px;font-weight:700;color:var(--am);flex-shrink:0;min-width:28px;text-align:right}
+.bslot-divider{height:1px;background:var(--border2);margin:0 .85rem}
+.bslot-footer{padding:.5rem .85rem;display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-top:1.5px solid var(--border2)}
+.bslot-status{font-size:11px;color:var(--txt3);font-weight:600}
+.bslot-status.ready{color:var(--am)}
+.bslot-status.done-lbl{color:var(--gn);font-weight:700}
+.bslot-status.bye{color:var(--bl);font-weight:600}
+/* Scoring modal */
+.score-modal{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:1rem}
+.score-modal-box{background:var(--surface);border-radius:var(--rad);width:100%;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,.2);overflow:hidden}
+.score-modal-hdr{padding:.85rem 1.25rem;border-bottom:2px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.score-modal-hdr h3{font-size:15px;font-weight:700}
+.score-modal-body{padding:1.25rem}
+.competitor-vote{display:flex;align-items:center;gap:12px;padding:.75rem;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rad-s);margin-bottom:10px}
+.competitor-vote-name{flex:1;font-size:14px;font-weight:700}
+.vote-btns{display:flex;gap:4px}
+.vbtn{width:36px;height:36px;border-radius:var(--rad-s);border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--txt2)}
+.vbtn.on{background:var(--am);border-color:var(--am);color:#fff}
+.vbtn:hover:not(.on):not(:disabled){background:var(--am-bg);border-color:var(--am-bd)}
+.vbtn:disabled{opacity:.2;cursor:default}
+.vote-total{font-size:18px;font-weight:700;color:var(--am);width:32px;text-align:center}
+.vote-summary{padding:.75rem;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rad-s);font-size:13px;color:var(--txt2);margin-bottom:1rem;font-weight:600}
+.vote-summary .winner-preview{color:var(--gn);font-weight:700}
+.vote-summary .tie-preview{color:var(--rd);font-weight:700}
+/* History */
+.hr-row{display:flex;align-items:center;gap:8px;padding:.7rem 1rem;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rad);flex-wrap:wrap}
+.hr-rb{font-size:10px;color:var(--txt3);background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rad-s);padding:2px 7px;white-space:nowrap;flex-shrink:0;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.hr-rb.rd{background:var(--pu-bg);border-color:var(--pu-bd);color:var(--pu)}
+.hr-t{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hr-t.w{font-weight:700;color:var(--am)}
+.hr-v{font-size:16px;font-weight:700;flex-shrink:0}
+.hvs{font-size:10px;color:var(--txt3);padding:0 3px;flex-shrink:0;font-weight:700}
+</style>
+</head>
+<body>
+<!-- Timer overlay (shared) -->
+<div id="tmr-overlay">
+  <div class="tmr-extras">
+    <div class="tmr-presets">
+      <button class="tmr-preset" data-secs="300">5 min</button>
+      <button class="tmr-preset" data-secs="420">7 min</button>
+      <button class="tmr-preset" data-secs="600">10 min</button>
+      <button class="tmr-preset" data-secs="900">15 min</button>
+    </div>
+  </div>
+  <div class="tmr-display" id="tmr-display">10:00</div>
+  <div class="tmr-extras">
+    <div class="tmr-controls">
+      <button class="tmr-btn tmr-start" id="tmr-start">▶ Start</button>
+      <button class="tmr-btn tmr-pause" id="tmr-pause">⏸ Pause</button>
+      <button class="tmr-btn tmr-reset" id="tmr-reset">↺ Reset</button>
+    </div>
+    <div class="tmr-footer">
+      <button id="tmr-close">✕ Close</button>
+      <button id="tmr-fs">⛶ Fullscreen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Audience overlay (shared) -->
+<div id="aud-overlay">
+  <div class="aud-banner">
+    <div class="aud-ac"></div>
+    <div class="aud-title-block">
+      <div class="aud-sub">Seduh Score</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="aud-title">Throwdown 1v1</div>
+        <span class="aud-module-tag badge badge-pu" id="aud-module-tag"></span>
+      </div>
+    </div>
+    <div class="aud-ts" id="aud-ts"></div>
+    <button class="aud-close" id="aud-close">✕ Close</button>
+  </div>
+  <div class="aud-body">
+    <div class="aud-panel"><div class="aud-sec-title">Standings</div><div id="aud-lb"></div></div>
+    <div class="aud-panel"><div class="aud-sec-title">Match results</div><div id="aud-hist"></div></div>
+  </div>
+</div>
+
+<!-- Score entry modal -->
+<div id="score-modal" style="display:none" class="score-modal">
+  <div class="score-modal-box">
+    <div class="score-modal-hdr">
+      <h3 id="sm-title">Score Match</h3>
+      <button class="btn-o" id="sm-cancel">✕ Cancel</button>
+    </div>
+    <div class="score-modal-body" id="sm-body"></div>
+  </div>
+</div>
+
+<div class="app" id="app"></div>
+
+<script src="../shared/storage.js"></script>
+<script src="../shared/timer.js"></script>
+<script src="../shared/audience.js"></script>
+<script>
+const STORE = Store('seduh_throwdown_v1');
+let mid = 0;
+
+const DEFAULT_STATE = () => ({
+  eventName: '', eventDate: '', eventVenue: '',
+  judges: 3,
+  redemption: false,
+  redemptionRounds: { r1: true, r2: false },
+  redemptionCap: 0,    // 0 = no cap; N = max N winners revived from redemption
+  wildCard: false,     // enable random loser revival after each main round
+  participants: [],
+  bracket: null,
+  matches: [],
+  tab: 'setup',
+  scoringMatchId: null,
+});
+
+let S = DEFAULT_STATE();
+
+/* ── Load ── */
+(function(){
+  const d = STORE.load();
+  if (d) {
+    S = { ...DEFAULT_STATE(), ...d };
+    mid = d._mid || 0;
+  }
+})();
+
+function save() {
+  STORE.save({ ...S, _mid: mid });
+}
+
+/* ── Bracket helpers ── */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function buildPairs(names) {
+  // Returns [{id, t1, t2, bye:false}] — if odd, last gets bye
+  const pairs = [];
+  const list = [...names];
+  while (list.length >= 2) {
+    pairs.push({ id: String(mid++), t1: list.shift(), t2: list.shift(), bye: false, matchId: null, winner: null, loser: null, votes1: 0, votes2: 0 });
+  }
+  if (list.length === 1) {
+    pairs.push({ id: String(mid++), t1: list[0], t2: null, bye: true, matchId: null, winner: list[0], loser: null, votes1: 0, votes2: 0 });
+  }
+  return pairs;
+}
+
+function generateBracket() {
+  const names = shuffle(S.participants.map(p => p.name));
+  const b = {
+    rounds: [],           // [{label, phase:'main'|'redemption', pairs:[]}]
+    mainPool: [],         // names in main bracket
+    redemptionPool: [],   // names awaiting redemption
+    mergedPool: [],       // after redemption merge
+    phase: 'main',        // 'main' | 'redemption' | 'elimination' | 'done'
+    currentRound: 0,
+    mainRoundsDone: 0,
+  };
+
+  // Round 1
+  const r1pairs = buildPairs(names);
+  b.rounds.push({ label: 'Round 1', phase: 'main', roundNum: 1, pairs: r1pairs });
+  b.mainPool = [];
+  b.redemptionPool = [];
+  S.bracket = b;
+  save();
+}
+
+function getActiveRound() {
+  if (!S.bracket) return null;
+  return S.bracket.rounds[S.bracket.rounds.length - 1];
+}
+
+function isRoundComplete(round) {
+  return round.pairs.every(p => p.bye || p.winner !== null);
+}
+
+function advanceBracket() {
+  const b = S.bracket;
+  const lastRound = b.rounds[b.rounds.length - 1];
+  if (!isRoundComplete(lastRound)) return;
+
+  const winners = lastRound.pairs.map(p => p.winner).filter(Boolean);
+  const losers  = lastRound.pairs.filter(p => !p.bye && p.loser).map(p => p.loser);
+
+  if (lastRound.phase === 'main') {
+    b.mainRoundsDone++;
+    const roundNum = b.mainRoundsDone;
+
+    // Wild card: pause before advancing so organizer can draw
+    if (S.wildCard && !b.wildCards) b.wildCards = {};
+    if (S.wildCard && b.wildCards[roundNum] === undefined && losers.length > 0 && winners.length > 1) {
+      b.pendingWildCard = roundNum;
+      b.pendingWildCardLosers = losers;
+      save(); return; // wait for draw or skip
+    }
+
+    // Collect wild card person if drawn (not skipped)
+    const wcPerson = S.wildCard && b.wildCards && b.wildCards[roundNum];
+    const advancingWinners = wcPerson ? [...winners, wcPerson] : winners;
+
+    // Collect losers into redemption pool if enabled for this round
+    const rdKey = 'r' + roundNum;
+    if (S.redemption && S.redemptionRounds[rdKey]) {
+      // Exclude wild card person from redemption pool
+      b.redemptionPool.push(...losers.filter(l => l !== wcPerson));
+    }
+
+    // Fire redemption round if pool is ready
+    if (S.redemption && b.redemptionPool.length >= 2 && S.redemptionRounds[rdKey]) {
+      const rdPairs = buildPairs(shuffle(b.redemptionPool));
+      b.rounds.push({ label: 'Redemption Round ' + roundNum, phase: 'redemption', roundNum, pairs: rdPairs });
+      b.redemptionPool = [];
+      b.phase = 'redemption';
+    } else if (advancingWinners.length >= 2) {
+      const nextPairs = buildPairs(shuffle(advancingWinners));
+      const nextLabel = getNextRoundLabel(b, advancingWinners.length);
+      b.rounds.push({ label: nextLabel, phase: 'main', roundNum: b.mainRoundsDone + 1, pairs: nextPairs });
+      b.phase = 'main';
+    } else if (advancingWinners.length === 1) {
+      b.phase = 'done';
+    }
+  } else if (lastRound.phase === 'redemption') {
+    // Apply redemption cap if set
+    const cap = S.redemptionCap > 0 ? S.redemptionCap : winners.length;
+    const rdWinners = winners.slice(0, cap);
+
+    const mainWinners = b.rounds
+      .filter(r => r.phase === 'main' && isRoundComplete(r))
+      .slice(-1)[0]?.pairs.map(p => p.winner).filter(Boolean) || [];
+
+    const merged = shuffle([...mainWinners, ...rdWinners]);
+    if (merged.length >= 2) {
+      const nextLabel = getNextRoundLabel(b, merged.length);
+      const nextPairs = buildPairs(merged);
+      b.rounds.push({ label: nextLabel, phase: 'main', roundNum: b.mainRoundsDone + 1, pairs: nextPairs });
+      b.phase = 'main';
+    } else {
+      b.phase = 'done';
+    }
+  }
+  save();
+}
+
+function drawWildCard() {
+  const b = S.bracket;
+  const losers = b.pendingWildCardLosers || [];
+  if (!losers.length) return;
+  const lucky = losers[Math.floor(Math.random() * losers.length)];
+  if (!b.wildCards) b.wildCards = {};
+  b.wildCards[b.pendingWildCard] = lucky;  // store drawn name
+  b.pendingWildCard = null;
+  b.pendingWildCardLosers = [];
+  save();
+  render(); // show reveal banner, then advance happens via bind
+}
+
+function skipWildCard() {
+  const b = S.bracket;
+  if (!b.wildCards) b.wildCards = {};
+  b.wildCards[b.pendingWildCard] = null;  // null = skipped
+  b.pendingWildCard = null;
+  b.pendingWildCardLosers = [];
+  save();
+  advanceBracket();
+  render();
+}
+
+function getNextRoundLabel(b, count) {
+  if (count <= 2) return 'Final';
+  if (count <= 4) return 'Semi Finals';
+  if (count <= 8) return 'Quarter Finals';
+  return 'Round ' + (b.mainRoundsDone + 1);
+}
+
+function openScoring(matchId) {
+  S.scoringMatchId = matchId;
+  renderScoreModal();
+  document.getElementById('score-modal').style.display = 'flex';
+}
+
+function closeScoring() {
+  S.scoringMatchId = null;
+  document.getElementById('score-modal').style.display = 'none';
+}
+
+/* ── Score modal render ── */
+function renderScoreModal() {
+  const mid = S.scoringMatchId;
+  if (!mid) return;
+
+  // Find pair in bracket
+  let pair = null;
+  for (const round of S.bracket.rounds) {
+    const p = round.pairs.find(x => x.id === mid);
+    if (p) { pair = p; break; }
+  }
+  if (!pair) return;
+
+  const judges = S.judges;
+  const v1 = pair.votes1 || 0;
+  const v2 = pair.votes2 || 0;
+  const total = v1 + v2;
+  const remaining = judges - total;
+
+  let preview = '';
+  if (total === judges) {
+    if (v1 > v2) preview = '<span class="winner-preview">🏆 ' + pair.t1 + ' wins</span>';
+    else if (v2 > v1) preview = '<span class="winner-preview">🏆 ' + pair.t2 + ' wins</span>';
+    else preview = '<span class="tie-preview">⚠️ Tie — check judge count (odd number recommended)</span>';
+  } else {
+    preview = remaining + ' vote' + (remaining !== 1 ? 's' : '') + ' remaining';
+  }
+
+  document.getElementById('sm-title').textContent = pair.t1 + ' vs ' + pair.t2;
+  document.getElementById('sm-body').innerHTML =
+    '<div class="competitor-vote"><div class="competitor-vote-name">' + pair.t1 + '</div>'
+    + '<div class="vote-btns">' + Array.from({length: judges+1}, (_,i) =>
+        '<button class="vbtn'+(v1===i?' on':'')+'" data-team="1" data-v="'+i+'"'+(i>judges-v2?' disabled':'')+'>'+i+'</button>'
+      ).join('') + '</div><div class="vote-total">'+v1+'</div></div>'
+    + '<div style="text-align:center;font-size:11px;color:var(--txt3);font-weight:700;padding:.25rem 0">JUDGES: '+judges+'</div>'
+    + '<div class="competitor-vote"><div class="competitor-vote-name">' + pair.t2 + '</div>'
+    + '<div class="vote-btns">' + Array.from({length: judges+1}, (_,i) =>
+        '<button class="vbtn'+(v2===i?' on':'')+'" data-team="2" data-v="'+i+'"'+(i>judges-v1?' disabled':'')+'>'+i+'</button>'
+      ).join('') + '</div><div class="vote-total">'+v2+'</div></div>'
+    + '<div class="vote-summary">' + preview + '</div>'
+    + '<button class="btn-p" id="sm-confirm" style="width:100%"'+(total!==judges||v1===v2?' disabled':'')+'>Confirm Result</button>';
+
+  // Bind vote buttons
+  document.querySelectorAll('.vbtn').forEach(btn => btn.addEventListener('click', () => {
+    const team = +btn.dataset.team, v = +btn.dataset.v;
+    if (team === 1) pair.votes1 = v;
+    else pair.votes2 = v;
+    renderScoreModal();
+  }));
+
+  document.getElementById('sm-confirm')?.addEventListener('click', () => {
+    pair.winner = pair.votes1 > pair.votes2 ? pair.t1 : pair.t2;
+    pair.loser  = pair.votes1 > pair.votes2 ? pair.t2 : pair.t1;
+    closeScoring();
+    advanceBracket();
+    render();
+  });
+
+  document.getElementById('sm-cancel')?.addEventListener('click', closeScoring);
+}
+
+/* ── Standings ── */
+function calcStandings() {
+  const wins = {}, losses = {}, played = {};
+  S.participants.forEach(p => { wins[p.name]=0; losses[p.name]=0; played[p.name]=0; });
+  if (S.bracket) {
+    S.bracket.rounds.forEach(round => {
+      round.pairs.filter(p => p.winner).forEach(p => {
+        if (p.bye) return;
+        wins[p.winner] = (wins[p.winner]||0) + 1;
+        losses[p.loser] = (losses[p.loser]||0) + 1;
+        played[p.t1] = (played[p.t1]||0) + 1;
+        played[p.t2] = (played[p.t2]||0) + 1;
+      });
+    });
+  }
+  return S.participants.map(p => ({
+    name: p.name,
+    wins: wins[p.name]||0,
+    losses: losses[p.name]||0,
+    played: played[p.name]||0,
+  })).sort((a,b) => b.wins-a.wins || a.losses-b.losses);
+}
+
+/* ── Render ── */
+function render() {
+  save();
+  document.getElementById('app').innerHTML = rMain();
+  bind();
+}
+
+function rMain() {
+  return '<div class="plat-hdr">'
+    + '<a href="../index.html" class="plat-back">← Seduh Score</a>'
+    + '<div class="plat-hdr-ac" style="width:4px;height:32px;background:var(--am);border-radius:2px;margin-left:4px"></div>'
+    + '<div><div class="plat-hdr-sub" style="font-size:10px;color:var(--am);font-weight:700;letter-spacing:.15em;text-transform:uppercase">Seduh Score</div>'
+    + '<div class="plat-hdr-name">Throwdown 1v1</div></div>'
+    + '<div class="hdr-btns"><button class="hdr-btn btn-am" id="tmrbtn">⏱ Timer</button>'
+    + '<button class="hdr-btn btn-am" id="audbtn">📺 Audience</button>'
+    + '<button class="hdr-btn btn-rd" id="resetbtn">↺ Reset</button></div></div>'
+    + '<div class="tabs">'
+    + [['setup','Setup'],['bracket','Bracket'],['history','History'],['standings','Standings']]
+      .map(([t,l]) => '<button class="tbtn'+(S.tab===t?' on':'')+'" data-tab="'+t+'">'+l+'</button>').join('')
+    + '</div>'
+    + '<div class="body">'
+    + (S.tab==='setup'?rSetup():S.tab==='bracket'?rBracket():S.tab==='history'?rHistory():rStandings())
+    + '</div>';
+}
+
+function rSetup() {
+  const maxR = S.bracket ? 'QF and below' : 'all rounds';
+  const canGen = S.participants.length >= 2;
+  return '<div class="card"><div class="card-hdr">Event info <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:9px">(optional)</span></div><div class="card-body">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'
+    + '<div><label class="field-lbl">Event name</label><input id="ev-name" type="text" value="'+S.eventName+'" placeholder="e.g. Throwdown Night #3"/></div>'
+    + '<div><label class="field-lbl">Date</label><input id="ev-date" type="text" value="'+S.eventDate+'" placeholder="e.g. 14 June 2025"/></div>'
+    + '<div><label class="field-lbl">Venue</label><input id="ev-venue" type="text" value="'+S.eventVenue+'" placeholder="e.g. Grey Matter HQ"/></div>'
+    + '</div></div></div>'
+
+    + '<div class="card"><div class="card-hdr">Judges per match</div><div class="card-body">'
+    + '<div class="judge-range"><span class="hint">3</span><input type="range" id="judge-range" min="3" max="5" step="1" value="'+S.judges+'"/><span class="hint">5</span>'
+    + '<div class="judge-count-display" id="judge-display">'+S.judges+'</div><span class="hint">judges</span></div>'
+    + '<p class="hint" style="margin-top:8px">'+(S.judges%2===0?'⚠️ Even number — tie is possible. The extra judge acts as tiebreaker.':'Odd number — no tie possible.')+'</p>'
+    + '</div></div>'
+
+    + '<div class="card"><div class="card-hdr">Redemption round</div><div class="card-body">'
+    + '<div class="redemption-row"><input type="checkbox" class="big-check" id="rd-enable"'+(S.redemption?' checked':'')+'>'
+    + '<div><div style="font-size:13px;font-weight:700;margin-bottom:4px">Enable redemption round</div>'
+    + '<p class="hint">Losers from selected rounds get a second chance. Redemption winners are randomized back into the main bracket. No redemption from QF and above.</p>'
+    + '<div class="round-checks" id="rd-rounds" style="'+(S.redemption?'':'opacity:.35;pointer-events:none')+'">'
+    + '<label class="round-check-item"><input type="checkbox" id="rd-r1"'+(S.redemptionRounds.r1?' checked':'')+'> Round 1</label>'
+    + '<label class="round-check-item"><input type="checkbox" id="rd-r2"'+(S.redemptionRounds.r2?' checked':'')+'> Round 2</label>'
+    + '</div>'
+    + '<div id="rd-cap-row" style="display:flex;align-items:center;gap:10px;margin-top:10px;'+(S.redemption?'':'opacity:.35;pointer-events:none')+'">'
+    + '<label class="field-lbl" style="margin-bottom:0;white-space:nowrap;font-size:11px">Max revived from redemption:</label>'
+    + '<input type="number" id="rd-cap" min="0" max="50" value="'+S.redemptionCap+'" style="width:64px;text-align:center;font-size:15px;font-weight:700"/>'
+    + '<span class="hint">(0 = no limit)</span>'
+    + '</div>'
+    + '</div></div>'
+    + '</div></div>'
+
+    + '<div class="card"><div class="card-hdr">Wild card revival</div><div class="card-body">'
+    + '<div class="redemption-row"><input type="checkbox" class="big-check" id="wc-enable"'+(S.wildCard?' checked':'')+'>'
+    + '<div><div style="font-size:13px;font-weight:700;margin-bottom:4px">Enable wild card round</div>'
+    + '<p class="hint">After each completed round a <strong>🃏 Draw Wild Card</strong> button appears. Tap it to randomly revive one loser from that round — they rejoin the next pool. Skip to continue without a revival. Can be skipped per round.</p>'
+    + '</div></div>'
+    + '</div></div>'
+
+    + '<div class="card"><div class="card-hdr">Participants — '+S.participants.length+' entered</div><div class="card-body">'
+    + '<div class="ir"><input id="p-inp" type="text" placeholder="Participant name…" style="width:auto"/><button class="btn-p" id="p-add">Add</button></div>'
+    + (S.participants.length ? '<div class="p-list">'+S.participants.map((p,i)=>'<div class="p-item"><span class="p-seed">'+(i+1)+'</span><span class="p-name">'+p.name+'</span><button class="p-rm" data-prm="'+p.name+'">×</button></div>').join('')+'</div>' : '<p class="hint" style="margin-top:10px">No participants yet.</p>')
+    + '</div></div>'
+
+    + '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+    + '<button class="btn-p" id="gen-bracket"'+(canGen?'':' disabled')+'>▶ Generate bracket &amp; start</button>'
+    + (canGen ? '<span class="hint">'+S.participants.length+' participants · '+Math.ceil(S.participants.length/2)+' matches in round 1'+(S.participants.length%2?' + 1 bye':'')+'</span>' : '<span class="hint">Add at least 2 participants.</span>')
+    + '</div>';
+}
+
+function rBracket() {
+  if (!S.bracket) return '<div class="empty">No bracket yet. Go to Setup and generate one.</div>';
+  const b = S.bracket;
+  let out = '';
+  b.rounds.forEach((round, ri) => {
+    const isRd = round.phase === 'redemption';
+    out += '<div class="bracket-section">'
+      + '<div class="section-title">'+(isRd?'🔄 ':'⚔️ ')+round.label+(isRd?' <span class="badge badge-pu" style="font-size:9px">Redemption</span>':'')+'</div>'
+      + round.pairs.map(pair => {
+          const isCurrent = ri === b.rounds.length - 1 && !isRoundComplete(round);
+          const isDone = pair.winner !== null;
+          const hasBoth = pair.t1 && pair.t2 && !pair.bye;
+          const cls = pair.bye ? '' : isDone ? ' done' : hasBoth && isCurrent ? ' active' : '';
+          const rdCls = isRd ? ' redemption' : '';
+
+          let footer = '';
+          if (pair.bye) {
+            footer = '<div class="bslot-footer"><span class="bslot-status bye">🎫 Bye — advances automatically</span></div>';
+          } else if (isDone) {
+            footer = '<div class="bslot-footer"><span class="bslot-status done-lbl">🏆 '+pair.winner+' advances</span><button class="btn-sm btn-o" style="font-size:10px" data-reopen="'+pair.id+'">Edit</button></div>';
+          } else if (hasBoth && isCurrent) {
+            footer = '<div class="bslot-footer"><span class="bslot-status ready">Ready to score</span><button class="btn-sm btn-am" data-score="'+pair.id+'">▶ Score</button></div>';
+          } else {
+            footer = '<div class="bslot-footer"><span class="bslot-status">⏳ Awaiting previous results</span></div>';
+          }
+
+          const t1cls = isDone ? (pair.t1===pair.winner?' winner':' loser') : '';
+          const t2cls = isDone ? (pair.t2===pair.winner?' winner':' loser') : '';
+
+          return '<div class="bslot'+cls+rdCls+'">'
+            + '<div class="bslot-hdr"><span>Match</span>'+(pair.votes1||pair.votes2?'<span style="font-size:10px">'+pair.votes1+' – '+pair.votes2+'</span>':'')+'</div>'
+            + '<div class="bslot-teams">'
+            + '<div class="bslot-team'+(pair.t1===pair.winner?' winner-row':'')+'"><span class="bslot-name'+(pair.t1?t1cls:' tbd')+'">'+(pair.t1||'TBD')+'</span>'+(pair.votes1>0?'<span class="bslot-votes">'+pair.votes1+'</span>':'')+'</div>'
+            + (pair.bye ? '' : '<div class="bslot-divider"></div><div class="bslot-team'+(pair.t2===pair.winner?' winner-row':'')+'"><span class="bslot-name'+(pair.t2?t2cls:' tbd')+'">'+(pair.t2||'TBD')+'</span>'+(pair.votes2>0?'<span class="bslot-votes">'+pair.votes2+'</span>':'')+'</div>')
+            + '</div>'+footer+'</div>';
+        }).join('')
+      + '</div>';
+  });
+
+  // Wild card pending — show draw interface
+  if (b.pendingWildCard) {
+    const losers = b.pendingWildCardLosers || [];
+    out += '<div style="padding:1.25rem;background:var(--pu-bg);border:2px solid var(--pu-bd);border-radius:var(--rad);margin-bottom:1rem">'
+      + '<div style="font-size:11px;font-weight:700;color:var(--pu);letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px">🃏 Wild Card Round</div>'
+      + '<p style="font-size:13px;color:var(--txt2);margin-bottom:12px">Round complete. Draw a wild card to randomly revive one eliminated competitor, or skip to continue.</p>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + '<button class="btn-p" id="do-draw-wc" style="background:var(--pu);border-color:var(--pu)">🃏 Draw Wild Card ('+ losers.length +' in pool)</button>'
+      + '<button class="btn-o" id="skip-wc">Skip → Continue</button>'
+      + '</div></div>';
+  }
+
+  // Wild card just drawn — show reveal
+  if (S.wildCard && b.wildCards) {
+    const latest = Object.entries(b.wildCards).filter(([,v])=>v).slice(-1)[0];
+    if (latest && b.rounds.length > 0) {
+      const drawnRound = +latest[0];
+      const drawnName = latest[1];
+      // Only show reveal for the most recent draw, on the round immediately after
+      const justDone = b.mainRoundsDone === drawnRound;
+      if (justDone) {
+        out = '<div style="padding:1.25rem;background:var(--pu-bg);border:2px solid var(--pu-bd);border-radius:var(--rad);margin-bottom:1rem;text-align:center">'
+          + '<div style="font-size:11px;font-weight:700;color:var(--pu);letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px">🃏 Wild Card Drawn!</div>'
+          + '<div style="font-size:22px;font-weight:700;color:var(--pu);margin-bottom:4px">'+drawnName+'</div>'
+          + '<p style="font-size:12px;color:var(--txt3)">Revived and entering the next round</p>'
+          + '</div>' + out;
+      }
+    }
+  }
+
+  if (b.phase === 'done') {
+    const allWinners = b.rounds.filter(r=>r.phase==='main').map(r=>r.pairs).flat().filter(p=>p.winner&&!p.bye);
+    const finalPair = allWinners[allWinners.length-1];
+    if (finalPair) {
+      out += '<div style="padding:1.5rem;background:var(--am-bg);border:2px solid var(--am-bd);border-radius:var(--rad);text-align:center;margin-top:.5rem">'
+        + '<div style="font-size:11px;font-weight:700;color:var(--am);letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px">🏆 Champion</div>'
+        + '<div style="font-size:26px;font-weight:700;color:var(--am)">'+finalPair.winner+'</div>'
+        + '</div>';
+    }
+  }
+  return out || '<div class="empty">Bracket is empty.</div>';
+}
+
+function rHistory() {
+  if (!S.bracket) return '<div class="empty">No bracket generated yet.</div>';
+  const done = S.bracket.rounds.flatMap(r => r.pairs.filter(p => p.winner && !p.bye).map(p => ({...p, roundLabel: r.label, isRd: r.phase==='redemption'})));
+  if (!done.length) return '<div class="empty">No matches completed yet.</div>';
+  return '<div style="display:flex;flex-direction:column;gap:7px">'
+    + done.map(p => '<div class="hr-row">'
+      + '<div class="hr-rb'+(p.isRd?' rd':'')+'">'+p.roundLabel+'</div>'
+      + '<div class="hr-t'+(p.winner===p.t1?' w':'')+'">'+p.t1+'</div>'
+      + '<div class="hr-v" style="color:'+(p.winner===p.t1?'var(--am)':'var(--txt3)')+'">'+p.votes1+'</div>'
+      + '<div class="hvs">vs</div>'
+      + '<div class="hr-v" style="color:'+(p.winner===p.t2?'var(--am)':'var(--txt3)')+'">'+p.votes2+'</div>'
+      + '<div class="hr-t'+(p.winner===p.t2?' w':'')+'" style="text-align:right">'+p.t2+'</div>'
+      + '</div>').join('')
+    + '</div>';
+}
+
+function rStandings() {
+  const st = calcStandings();
+  if (!st.length) return '<div class="empty">Add participants in Setup.</div>';
+  return '<div style="font-size:15px;font-weight:700;margin-bottom:.85rem">Standings</div>'
+    + '<div style="display:flex;flex-direction:column;gap:7px">'
+    + st.map((s,i) => '<div class="lb-row">'
+      + '<div class="rnk '+(i===0?'r1':i===1?'r2':i===2?'r3':'ro')+'">'+(i+1)+'</div>'
+      + '<div class="lb-name">'+s.name+'</div>'
+      + '<div style="text-align:center;font-size:12px;font-weight:600;color:var(--txt2);flex-shrink:0">'+s.wins+'W / '+s.losses+'L<div style="font-size:10px;color:var(--txt3)">'+s.played+' played</div></div>'
+      + '</div>').join('')
+    + '</div>';
+}
+
+/* ── Audience ── */
+function showAudience() {
+  const st = calcStandings();
+  const rnkSt = i => i===0?'background:#D97706;color:#fff':i===1?'background:#9CA3AF;color:#fff':i===2?'background:#92400E;color:#fff':'background:#F3F4F6;color:#6B7280;border:1.5px solid #E5E7EB';
+  const lbHTML = st.length ? st.map((s,i)=>'<div class="aud-lb-row"><div class="aud-rnk" style="'+rnkSt(i)+'">'+(i+1)+'</div><div class="aud-name">'+s.name+'</div><div class="aud-rec">'+s.wins+'W/'+s.losses+'L<br><span style="font-size:10px">'+s.played+' played</span></div></div>').join('') : '<div style="text-align:center;padding:2.5rem;color:#9CA3AF">No data yet.</div>';
+  const done = S.bracket ? S.bracket.rounds.flatMap(r => r.pairs.filter(p=>p.winner&&!p.bye).map(p=>({...p,roundLabel:r.label,isRd:r.phase==='redemption'}))).reverse() : [];
+  const histHTML = done.length ? done.map(p=>'<div class="aud-h-row"><div class="aud-h-rb">'+p.roundLabel+'</div><div style="flex:1;font-size:14px;font-weight:'+(p.winner===p.t1?700:500)+';color:'+(p.winner===p.t1?'#B45309':'#374151')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.t1+'</div><div style="font-size:22px;font-weight:700;color:'+(p.winner===p.t1?'#B45309':'#6B7280')+';flex-shrink:0">'+p.votes1+'</div><div style="font-size:11px;color:#9CA3AF;padding:0 4px;flex-shrink:0">vs</div><div style="font-size:22px;font-weight:700;color:'+(p.winner===p.t2?'#B45309':'#6B7280')+';flex-shrink:0">'+p.votes2+'</div><div style="flex:1;font-size:14px;font-weight:'+(p.winner===p.t2?700:500)+';color:'+(p.winner===p.t2?'#B45309':'#374151')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right">'+p.t2+'</div></div>').join('') : '<div style="text-align:center;padding:2.5rem;color:#9CA3AF">No results yet.</div>';
+  const now = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('aud-ts').innerHTML = (S.eventName||'Throwdown 1v1')+'<br>'+now;
+  document.getElementById('aud-lb').innerHTML = lbHTML;
+  document.getElementById('aud-hist').innerHTML = histHTML;
+  document.getElementById('aud-overlay').classList.add('show');
+}
+
+/* ── Bind ── */
+function bind() {
+  const $ = id => document.getElementById(id);
+  const on = (id,ev,fn) => { const el=$(id); if(el) el.addEventListener(ev,fn); };
+
+  Timer.init();
+  on('tmrbtn','click',() => Timer.open());
+  on('aud-close','click',() => document.getElementById('aud-overlay').classList.remove('show'));
+  on('audbtn','click',() => showAudience());
+
+  // Tabs
+  document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click',()=>{S.tab=b.dataset.tab;render();}));
+
+  // Reset
+  on('resetbtn','click',() => {
+    if (confirm('Reset ALL throwdown data? Cannot be undone.')) {
+      STORE.clear(); mid=0; S=DEFAULT_STATE(); render();
+    }
+  });
+
+  // Event info
+  [['ev-name','eventName'],['ev-date','eventDate'],['ev-venue','eventVenue']].forEach(([id,key])=>{
+    on(id,'input',() => { S[key]=$(id).value; save(); });
+  });
+
+  // Judge range
+  on('judge-range','input',() => {
+    S.judges = +$('judge-range').value;
+    $('judge-display').textContent = S.judges;
+    save();
+  });
+
+  // Redemption
+  on('rd-enable','change',() => {
+    S.redemption = $('rd-enable').checked;
+    const off = 'opacity:.35;pointer-events:none';
+    const on2 = '';
+    $('rd-rounds').style.cssText = S.redemption ? on2 : off;
+    $('rd-cap-row').style.cssText = S.redemption ? on2 : off;
+    save();
+  });
+  on('rd-r1','change',() => { S.redemptionRounds.r1 = $('rd-r1').checked; save(); });
+  on('rd-r2','change',() => { S.redemptionRounds.r2 = $('rd-r2').checked; save(); });
+  on('rd-cap','change',() => { S.redemptionCap = Math.max(0, +$('rd-cap').value||0); save(); });
+
+  // Wild card
+  on('wc-enable','change',() => { S.wildCard = $('wc-enable').checked; save(); });
+  on('do-draw-wc','click',() => { drawWildCard(); advanceBracket(); render(); });
+  on('skip-wc','click',() => { skipWildCard(); });
+
+  // Participants
+  const addP = () => {
+    const inp = $('p-inp'); if (!inp) return;
+    const name = inp.value.trim();
+    if (name && !S.participants.some(p => p.name.toLowerCase()===name.toLowerCase())) {
+      S.participants.push({ name });
+      inp.value=''; render();
+    } else inp.value='';
+  };
+  on('p-add','click', addP);
+  on('p-inp','keydown', e => e.key==='Enter' && addP());
+  document.querySelectorAll('[data-prm]').forEach(b => b.addEventListener('click',()=>{
+    S.participants = S.participants.filter(p=>p.name!==b.dataset.prm); render();
+  }));
+
+  // Generate bracket
+  on('gen-bracket','click',() => { mid=0; generateBracket(); S.tab='bracket'; render(); });
+
+  // Score buttons
+  document.querySelectorAll('[data-score]').forEach(b => b.addEventListener('click',()=>{
+    S.scoringMatchId = b.dataset.score;
+    renderScoreModal();
+    document.getElementById('score-modal').style.display='flex';
+  }));
+  document.querySelectorAll('[data-reopen]').forEach(b => b.addEventListener('click',()=>{
+    // Find and reset pair for editing
+    for (const round of S.bracket.rounds) {
+      const p = round.pairs.find(x=>x.id===b.dataset.reopen);
+      if (p) { p.winner=null; p.loser=null; break; }
+    }
+    S.scoringMatchId = b.dataset.reopen;
+    renderScoreModal();
+    document.getElementById('score-modal').style.display='flex';
+    render();
+  }));
+  on('sm-cancel','click', closeScoring);
+}
+
+render();
+</script>
+</body>
+</html>

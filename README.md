@@ -1,96 +1,95 @@
-# Brunei Barista Team Championship
+# Seduh Score ☕
 
-An organizer tool for running the Brunei Barista Team Competition — a head-to-head team coffee competition. Built as a single HTML file. No server, no dependencies, no installation required.
+**Coffee competition platform for organizers.** Single-folder web app — no server, no build step, no dependencies.
 
-**[→ Open the app](https://mfosa7222.github.io/BBTC-Score/)**
-
----
-
-## What it does
-
-The app is used by the competition secretary to manage matches in real time, from setup through to the final standings.
-
-- Register teams and a judge pool
-- Create matches manually — pick the round, two teams, and 3 judges from the pool
-- Score each match drink-by-drink using shared token logic (max 3 tokens per cup, split between both teams)
-- Automatic winner bonus, manual fastest-team and signature beverage bonuses
-- Live leaderboard with configurable quarter-finals cutline
-- Audience view for projector display
-- Export results as PDF (print-ready, A4) or CSV (full cup-by-cup data)
-- All data persists in the browser — survives refreshes and tab closes
+**[→ Open Seduh Score](https://mfosa.github.io/seduh-score/)**
 
 ---
 
-## Competition rules implemented
+## Modules
 
-| Round | Drinks | Time limit | Max judge points |
-|---|---|---|---|
-| Preliminary | 15 | 10 min | 45 |
-| Quarter Finals | 20 | 15 min | 60 |
-| Semi Finals | 20 | 15 min | 60 |
-| Finals | 20 | 15 min | 60 |
-
-**Scoring per cup:** 3 judges, 1 token each. Max 3 tokens per cup shared between both teams.
-
-**Bonus points**
-- +5 Round winner — automatic, awarded to the team with more judge tokens
-- +2 Fastest team — manual, mutually exclusive between the two teams
-- +2 Signature beverage — manual, Quarter Finals and beyond only
+| Module | Status | Format |
+|---|---|---|
+| **BBTC** | ✅ Live | Brunei Barista Team Championship — head-to-head team scoring with seeded knockout bracket |
+| **Throwdown 1v1** | ✅ Live | Individual knockout bracket with randomized seeding and optional redemption round |
+| **Liga Seduh** | 🔜 Planned | Round robin league — season standings and match scheduling |
 
 ---
 
-## How to use
+## How to deploy
 
-### Option A — GitHub Pages (recommended)
-1. Fork or clone this repo
+### GitHub Pages (recommended)
+1. Push this folder to a public GitHub repo
 2. Go to **Settings → Pages → Deploy from branch → main / (root)**
-3. Share the generated URL with your organizers
+3. Share `https://yourusername.github.io/seduh-score/`
 
-### Option B — Run locally
-Download `index.html` and open it in any modern browser. No internet connection required after download.
-
----
-
-## Organizer workflow
-
-1. **Setup** — Enter event date and venue (optional), add team names and judges to the pool
-2. **Matches** — Click **+ Create match**, select round, teams, and 3 judges, then create
-3. **Score ▶** — Open a match, enter finish times, tap the 0/1/2/3 buttons per drink per team, tick bonuses
-4. **Finalise** — Saves the match and updates the leaderboard
-5. **Leaderboard** — Set QF spots to highlight which teams advance
-6. **📺 Audience** — Opens a light full-screen view for projection, showing leaderboard and results side by side
-7. **📄 Export PDF** — Generates a print-ready A4 results document (standings + match results)
-8. **📊 Export CSV** — Downloads full data including cup-by-cup scores for every match
-
-### Resetting between events
-Use the **↺ Reset** button in the header to wipe all data and start fresh for a new competition day.
+### Local
+Download the folder and open `index.html` in any modern browser. No internet required.
 
 ---
 
-## Files
+## BBTC — Barista Team Championship
+
+Team head-to-head competition. The secretary enters cup-by-cup token scores for each match.
+
+**Scoring:** 3 judges · 1 token each · max 3 tokens per cup shared between both teams  
+**Rounds:** Preliminary (15 drinks, 10 min) · QF/SF/Final (20 drinks, 15 min)  
+**Bracket seeding (8 teams):** QF1: 1v8 · QF2: 3v6 · QF3: 4v5 · QF4: 2v7
+
+**Workflow:** Setup → Prelims → Standings (set QF spots) → Bracket → Score → Export PDF/CSV
+
+---
+
+## Throwdown 1v1
+
+Individual knockout bracket. Judges vote for a winner per match.
+
+**Judges:** 3 to 5 per match (odd number recommended — no tie possible)  
+**Bracket:** Randomized seeding · automatic byes for odd participant counts  
+**Redemption:** Optional per-round — losers get a second chance, winners merge back into the main bracket (not available from QF and above)
+
+**Workflow:** Setup (participants, judges, redemption config) → Generate Bracket → Score each match → Champion
+
+---
+
+## Shared components
+
+All modules share:
+- **⏱ Timer** — 5/10/15 min countdown with fullscreen court display
+- **📺 Audience view** — light-theme overlay for projector
+- **💾 Storage** — localStorage persistence per module, survives refresh
+- **🎨 Theme** — unified design system (`shared/theme.css`)
+
+---
+
+## File structure
 
 ```
-brunei-barista-championship/
-├── index.html      — the full application (single file)
-├── CHANGELOG.md    — version history
-└── README.md       — this file
+seduh-score/
+├── index.html              ← dashboard / module selector
+├── bbtc/
+│   └── index.html          ← BBTC module
+├── throwdown/
+│   └── index.html          ← Throwdown 1v1 module
+├── shared/
+│   ├── theme.css           ← design tokens and shared styles
+│   ├── timer.js            ← countdown timer component
+│   ├── audience.js         ← audience overlay component
+│   └── storage.js          ← localStorage wrapper
+├── CHANGELOG.md
+└── README.md
 ```
-
----
-
-## Browser support
-
-Works in all modern browsers — Chrome, Edge, Firefox, Safari. Tested on desktop and mobile. Data is stored in `localStorage` and is specific to each browser/device.
 
 ---
 
 ## Built by
 
-Firdaus Omar — Grey Matter Coffee Werks, Brunei  
-Competition background: Malaysian Aeropress Championship, ASEAN Barista Team Championship, Liga Seduh Bawah Tanah
+Firdaus Omar · Grey Matter Coffee Werks, Brunei  
+[@mfosaminumkopi](https://instagram.com/mfosaminumkopi) · Podcast: Mfosa Sembang Kopi  
+Competition record: Malaysian Aeropress Championship · ASEAN Barista Team Championship · Liga Seduh Bawah Tanah (founder)
 
 ---
 
 ## License
 
-MIT — free to use, adapt, and share.
+MIT — free to use, adapt, and share with the coffee community.
