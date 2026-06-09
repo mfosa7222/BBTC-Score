@@ -5,69 +5,317 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seduh Score — Coffee Competition Platform</title>
 <link rel="stylesheet" href="shared/theme.css">
-<style>
-.dashboard{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem}
-.ds-brand{display:flex;align-items:center;gap:12px;margin-bottom:.5rem}
-.ds-ac{width:5px;height:52px;background:var(--am);border-radius:3px}
-.ds-name{font-size:32px;font-weight:700;color:var(--txt);letter-spacing:-.02em;line-height:1}
-.ds-sub{font-size:12px;color:var(--am);font-weight:700;letter-spacing:.2em;text-transform:uppercase}
-.ds-tagline{font-size:14px;color:var(--txt3);margin-bottom:3rem;text-align:center}
-.ds-modules{display:flex;flex-direction:column;gap:14px;width:100%;max-width:440px}
-.ds-btn{display:flex;align-items:center;gap:16px;padding:1.1rem 1.4rem;background:var(--surface);border:2px solid var(--border);border-radius:var(--rad);cursor:pointer;text-decoration:none;color:var(--txt);transition:border-color .15s,box-shadow .15s;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.ds-btn:hover{border-color:var(--am-bd);box-shadow:0 3px 12px rgba(180,83,9,.12)}
-.ds-btn.disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
-.ds-btn-icon{font-size:26px;flex-shrink:0;width:44px;text-align:center}
-.ds-btn-text{}
-.ds-btn-name{font-size:15px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:8px}
-.ds-btn-desc{font-size:12px;color:var(--txt3);margin-top:2px}
-.ds-soon{font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;background:var(--bg);border:1.5px solid var(--border);color:var(--txt3);letter-spacing:.06em;text-transform:uppercase}
-.ds-footer{margin-top:3rem;font-size:11px;color:var(--txt3);text-align:center;line-height:1.9}
-.ds-footer a{color:var(--am);text-decoration:none;font-weight:600}
-</style>
 </head>
 <body>
-<div class="dashboard">
-  <div style="text-align:center;margin-bottom:.6rem">
-    <div class="ds-brand">
-      <div class="ds-ac"></div>
-      <div>
-        <div class="ds-name">Seduh Score</div>
-        <div class="ds-sub">Coffee Competition Platform</div>
-      </div>
-    </div>
-  </div>
-  <p class="ds-tagline">Select a competition format to begin</p>
+<div class="shell">
 
-  <div class="ds-modules">
-    <a class="ds-btn" href="bbtc/index.html">
-      <div class="ds-btn-icon">☕</div>
-      <div class="ds-btn-text">
-        <div class="ds-btn-name">BBTC</div>
-        <div class="ds-btn-desc">Brunei Barista Team Championship — head-to-head team scoring with bracket</div>
-      </div>
+  <!-- ══ Permanent platform lockup (Seduh / Grey Matter — roadmap v4.1 IP) ══ -->
+  <header class="plat-hdr">
+    <a class="plat-hdr-logo" href="index.html">
+      <span class="plat-hdr-ac"></span>
+      <span>
+        <span class="plat-hdr-name">Seduh Score</span>
+        <span class="plat-hdr-sub">Coffee Competition Platform</span>
+      </span>
     </a>
-
-    <a class="ds-btn" href="throwdown/index.html">
-      <div class="ds-btn-icon">⚡</div>
-      <div class="ds-btn-text">
-        <div class="ds-btn-name">Throwdown 1v1</div>
-        <div class="ds-btn-desc">Individual knockout bracket with optional redemption round</div>
-      </div>
-    </a>
-
-    <div class="ds-btn disabled">
-      <div class="ds-btn-icon">🏆</div>
-      <div class="ds-btn-text">
-        <div class="ds-btn-name">Liga Seduh <span class="ds-soon">Coming soon</span></div>
-        <div class="ds-btn-desc">Round robin league — full season standings and scheduling</div>
-      </div>
+    <div class="plat-hdr-actions">
+      <span class="plat-hdr-loc"><span class="dot"></span>Brunei Darussalam</span>
+      <button class="btn-customize" id="open-setup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+        Make it your own
+      </button>
     </div>
-  </div>
+  </header>
 
-  <div class="ds-footer">
-    Built by <a href="https://github.com/mfosa" target="_blank">Firdaus Omar</a> · Grey Matter Coffee Werks, Brunei<br>
-    <a href="https://github.com/mfosa/seduh-score" target="_blank">github.com/mfosa/seduh-score</a>
-  </div>
+  <main class="main">
+    <section class="hero reveal d1" id="hero"><!-- rendered by JS --></section>
+
+    <div class="sec-head reveal d2">
+      <h2>Competition formats</h2>
+      <span class="rule"></span>
+      <span class="count" id="mod-count"></span>
+    </div>
+    <div class="modules" id="modules"></div>
+
+    <div class="tools reveal d3" id="tools"></div>
+
+    <footer class="foot">
+      <div class="credit">
+        Built by <a href="https://instagram.com/mfosaminumkopi" target="_blank" rel="noreferrer">Firdaus Omar</a> · Grey Matter Coffee Werks, Brunei<br>
+        Free to use, adapt &amp; share with the coffee community.
+      </div>
+      <span class="live-pill"><span class="dot"></span>Your changes save to this device</span>
+    </footer>
+  </main>
 </div>
+
+<!-- ══ "Make it your own" slide-over ══ -->
+<div class="scrim" id="scrim"></div>
+<aside class="sheet" id="sheet" role="dialog" aria-label="Customize competition">
+  <header class="sheet-hdr">
+    <span class="bar"></span>
+    <div class="htxt"><h3>Make it your own</h3><div class="sub">Live customization</div></div>
+    <button class="sheet-close" id="close-setup" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </header>
+  <div class="sheet-body">
+    <div class="fieldset">
+      <div class="leg">Event identity</div>
+      <div class="field"><label for="f-name">Competition name</label>
+        <input id="f-name" type="text" maxlength="48" placeholder="e.g. Brunei Aeropress Open"></div>
+      <div class="field"><label for="f-sub">Subtitle / blurb</label>
+        <textarea id="f-sub" maxlength="180" placeholder="One line that sets the scene"></textarea>
+        <span class="hint" id="f-sub-count"></span></div>
+    </div>
+    <div class="fieldset">
+      <div class="leg">Schedule &amp; place</div>
+      <div class="row2">
+        <div class="field"><label for="f-date">Date</label><input id="f-date" type="date"></div>
+        <div class="field"><label for="f-venue">Venue</label><input id="f-venue" type="text" maxlength="60" placeholder="Café, city"></div>
+      </div>
+    </div>
+    <div class="fieldset">
+      <div class="leg">Branding</div>
+      <div class="field"><label>Accent colour</label>
+        <div class="swatches" id="swatches"></div>
+        <span class="hint" style="margin-top:8px">Seduh Amber is the house colour — yours overrides it across the platform.</span></div>
+      <div class="field"><label>Logo / poster</label>
+        <span class="hint">Click the placeholder on the dashboard to upload your event logo (saved to this device).</span></div>
+    </div>
+    <div class="fieldset">
+      <div class="leg">Cover layout</div>
+      <div class="layout-pick" id="layout-pick"></div>
+    </div>
+  </div>
+  <footer class="sheet-foot">
+    <button class="btn-o" id="reset-setup">Reset</button>
+    <button class="btn-p" id="done-setup">Done</button>
+  </footer>
+</aside>
+
+<script>
+/* ───────── Seduh Score dashboard — vanilla, no dependencies ───────── */
+(function(){
+  "use strict";
+
+  /* ── icons ── */
+  var IC = {
+    calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg>',
+    pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+    arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+  };
+
+  /* ── accents (amber = house default) ── */
+  var ACCENTS = {
+    amber:   {name:"Seduh Amber", base:"#b45309",h:"#92400e",bg:"#fbf0df",bd:"#e09a36",ink:"#ffffff"},
+    espresso:{name:"Espresso",    base:"#6f4636",h:"#553328",bg:"#f1e8e2",bd:"#c4a392",ink:"#ffffff"},
+    crema:   {name:"Crema Gold",  base:"#a87514",h:"#855a0c",bg:"#f8eecf",bd:"#dcae45",ink:"#ffffff"},
+    teal:    {name:"Pandan Teal", base:"#0f766e",h:"#0c5d57",bg:"#dff3f0",bd:"#5cc2b6",ink:"#ffffff"},
+    cobalt:  {name:"Cobalt",      base:"#1d4ed8",h:"#1740ad",bg:"#e7eefe",bd:"#9bbcf6",ink:"#ffffff"},
+    berry:   {name:"Roselle",     base:"#a3175a",h:"#821248",bg:"#fbe4ee",bd:"#e88bb6",ink:"#ffffff"}
+  };
+
+  var MODULES = [
+    {id:"bbtc",href:"bbtc/index.html",icon:"☕",live:true,name:"BBTC",format:"Team · Knockout bracket",
+     desc:"Brunei Barista Team Championship. Head-to-head, cup-by-cup token scoring with a seeded knockout bracket.",
+     m:"#b45309",bg:"#fbf0df",bd:"#e6c79a"},
+    {id:"throwdown",href:"throwdown/index.html",icon:"⚡",live:true,name:"Throwdown 1v1",format:"Solo · Redemption round",
+     desc:"Individual knockout bracket. Judges vote a winner per match, with randomized seeding and an optional redemption round.",
+     m:"#1d4ed8",bg:"#eaf1fe",bd:"#bcd3f8"},
+    {id:"liga",href:"#",icon:"🏆",live:false,name:"Liga Seduh",format:"League · Round robin",
+     desc:"Full-season standings and match scheduling for a round-robin league. Track form across the whole season.",
+     m:"#0b7a52",bg:"#e6f6ee",bd:"#a6dcc4"}
+  ];
+
+  var TOOLS = [
+    {ic:"⏱",t:"Court Timer",d:"5 / 7 / 10 / 15 min countdown"},
+    {ic:"📺",t:"Audience View",d:"Projector-ready overlay"},
+    {ic:"💾",t:"Auto-save",d:"Saved to this device"}
+  ];
+
+  var DEFAULT_EVENT = {
+    name:"Liga Seduh Bawah Tanah",
+    subtitle:"Season 3 · the underground brew league returns to Bandar. Sixteen baristas, one bracket, last cup standing.",
+    date:"2026-06-14",
+    venue:"Grey Matter Coffee Werks, Bandar Seri Begawan",
+    accent:"amber", layout:"band", logo:null
+  };
+
+  var LS = "seduh_event_v1";
+  var state = load();
+
+  function load(){
+    try{ var raw = localStorage.getItem(LS); if(raw) return Object.assign({}, DEFAULT_EVENT, JSON.parse(raw)); }catch(e){}
+    return Object.assign({}, DEFAULT_EVENT);
+  }
+  function save(){ try{ localStorage.setItem(LS, JSON.stringify(state)); }catch(e){} }
+
+  function fmtDate(iso){
+    if(!iso) return null;
+    var d = new Date(iso+"T00:00:00"); if(isNaN(d)) return null;
+    return d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"long",year:"numeric"});
+  }
+  function esc(s){ return (s||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+
+  function applyAccent(){
+    var a = ACCENTS[state.accent] || ACCENTS.amber, r = document.documentElement.style;
+    r.setProperty("--accent",a.base); r.setProperty("--accent-h",a.h);
+    r.setProperty("--accent-bg",a.bg); r.setProperty("--accent-bd",a.bd); r.setProperty("--accent-ink",a.ink);
+  }
+
+  /* ── logo slot markup ── */
+  function logoSlot(id, ph){
+    var img = state.logo ? '<img src="'+state.logo+'" alt="event logo">' : '<span class="ph">'+ph+'</span>';
+    return '<label class="logo-slot hero-logo" data-logo="1">'+img+'<input type="file" accept="image/*"></label>';
+  }
+
+  /* ── meta chips ── */
+  function metaRow(){
+    var dl = fmtDate(state.date);
+    return '<div class="hero-meta">'+
+      '<span class="metachip'+(dl?'':' empty')+'">'+IC.calendar+'<span><span class="k">Date</span>'+(dl||"Set a date")+'</span></span>'+
+      '<span class="metachip'+(state.venue?'':' empty')+'">'+IC.pin+'<span><span class="k">Venue</span>'+(esc(state.venue)||"Set a venue")+'</span></span>'+
+    '</div>';
+  }
+
+  /* ── hero (3 layouts) ── */
+  function renderHero(){
+    var hero = document.getElementById("hero");
+    hero.setAttribute("data-layout", state.layout);
+    var name = esc(state.name)||"Name your competition";
+    var sub  = state.subtitle ? '<p class="hero-sub">'+esc(state.subtitle)+'</p>' : '';
+    var kick = '<div class="hero-kicker"><span class="line"></span><span class="eyebrow">'+(fmtDate(state.date)?"Presented on Seduh Score":"Your competition")+'</span></div>';
+
+    if(state.layout==="editorial"){
+      hero.innerHTML =
+        '<div class="hero-text">'+kick+'<h1 class="hero-name">'+name+'</h1>'+sub+metaRow()+'</div>'+
+        '<div class="hero-figure">'+logoSlot("ed","Drop event poster")+'<span class="fig-tab">Est. Brunei</span></div>';
+    } else if(state.layout==="ticket"){
+      var dl = fmtDate(state.date);
+      hero.innerHTML =
+        '<div class="ticket"><div class="ticket-main">'+kick+'<h1 class="hero-name">'+name+'</h1>'+sub+metaRow()+'</div>'+
+        '<div class="ticket-stub"><span class="ticket-admit">Admit · Brew · Score</span>'+logoSlot("tk","Logo")+
+        '<span class="eyebrow" style="text-align:center">'+(dl?dl.split(",").pop().trim():"—")+'</span></div></div>';
+    } else {
+      hero.innerHTML =
+        '<span class="accent-rail"></span><div class="hero-inner">'+logoSlot("bd","Drop logo")+
+        kick+'<h1 class="hero-name">'+name+'</h1>'+sub+metaRow()+'</div>';
+    }
+    bindLogo();
+  }
+
+  /* ── modules ── */
+  function renderModules(){
+    var live = MODULES.filter(function(m){return m.live;}).length;
+    document.getElementById("mod-count").textContent = live+" live · "+MODULES.length+" total";
+    document.getElementById("modules").innerHTML = MODULES.map(function(m,i){
+      var st = 'style="--m:'+m.m+';--m-bg:'+m.bg+';--m-bd:'+m.bd+'"';
+      var soon = m.live ? '' : '<span class="soon-tag">Coming soon</span>';
+      var foot = '<div class="mod-foot"><span class="status'+(m.live?'':' soon')+'"><span class="dot"></span>'+(m.live?'Live':'Planned')+'</span>'+
+                 (m.live?'<span class="mod-go">Open '+IC.arrow+'</span>':'')+'</div>';
+      var inner = '<div class="mod-top"></div><div class="mod-body"><div class="mod-row"><div class="mod-icon">'+m.icon+'</div>'+
+        '<div class="mod-h"><div class="mod-name">'+m.name+' '+soon+'</div><div class="mod-fmt">'+m.format+'</div></div></div>'+
+        '<p class="mod-desc">'+m.desc+'</p>'+foot+'</div>';
+      var cls = "mod reveal d"+Math.min(i+2,4)+(m.live?'':' soon');
+      return m.live ? '<a class="'+cls+'" href="'+m.href+'" '+st+'>'+inner+'</a>'
+                    : '<div class="'+cls+'" '+st+'>'+inner+'</div>';
+    }).join("");
+  }
+
+  function renderTools(){
+    document.getElementById("tools").innerHTML = TOOLS.map(function(t){
+      return '<div class="tool"><div class="tool-ic">'+t.ic+'</div><div><div class="tool-t">'+t.t+'</div><div class="tool-d">'+t.d+'</div></div></div>';
+    }).join("");
+  }
+
+  /* ── setup panel controls ── */
+  function renderSwatches(){
+    document.getElementById("swatches").innerHTML = Object.keys(ACCENTS).map(function(k){
+      var a = ACCENTS[k];
+      return '<button class="swatch'+(state.accent===k?' on':'')+'" data-accent="'+k+'" title="'+a.name+'" style="background:'+a.base+';--sw:'+a.base+'"></button>';
+    }).join("");
+  }
+  function layoutMini(kind){
+    var a="var(--accent)", l="var(--border3)";
+    if(kind==="band") return '<svg viewBox="0 0 60 34"><rect x="0" y="0" width="60" height="34" rx="4" fill="var(--surface)" stroke="var(--border)"/><rect x="0" y="0" width="4" height="34" fill="'+a+'"/><rect x="10" y="9" width="28" height="6" rx="2" fill="'+a+'"/><rect x="10" y="19" width="20" height="3" rx="1.5" fill="'+l+'"/><rect x="44" y="7" width="11" height="11" rx="2" fill="none" stroke="'+l+'"/></svg>';
+    if(kind==="editorial") return '<svg viewBox="0 0 60 34"><rect x="2" y="9" width="26" height="6" rx="2" fill="'+a+'"/><rect x="2" y="19" width="18" height="3" rx="1.5" fill="'+l+'"/><rect x="36" y="3" width="22" height="28" rx="3" fill="none" stroke="'+l+'" stroke-dasharray="2 2"/></svg>';
+    return '<svg viewBox="0 0 60 34"><rect x="3" y="4" width="54" height="26" rx="4" fill="var(--surface)" stroke="var(--border)"/><line x1="42" y1="4" x2="42" y2="30" stroke="'+l+'" stroke-dasharray="2 2"/><rect x="9" y="10" width="24" height="5" rx="2" fill="'+a+'"/><rect x="9" y="19" width="16" height="3" rx="1.5" fill="'+l+'"/><rect x="46" y="12" width="9" height="9" rx="2" fill="none" stroke="'+l+'"/></svg>';
+  }
+  function renderLayoutPick(){
+    var names={band:"Band",editorial:"Editorial",ticket:"Ticket"};
+    document.getElementById("layout-pick").innerHTML = ["band","editorial","ticket"].map(function(k){
+      return '<button class="lp'+(state.layout===k?' on':'')+'" data-layout="'+k+'">'+layoutMini(k)+'<span class="lpn">'+names[k]+'</span></button>';
+    }).join("");
+  }
+
+  /* ── logo upload ── */
+  function bindLogo(){
+    document.querySelectorAll('[data-logo] input').forEach(function(inp){
+      inp.addEventListener("change", function(e){
+        var f = e.target.files[0]; if(!f) return;
+        var rd = new FileReader();
+        rd.onload = function(){ state.logo = rd.result; save(); renderHero(); };
+        rd.readAsDataURL(f);
+      });
+    });
+  }
+
+  /* ── form sync ── */
+  function fillForm(){
+    document.getElementById("f-name").value = state.name||"";
+    document.getElementById("f-sub").value = state.subtitle||"";
+    document.getElementById("f-date").value = state.date||"";
+    document.getElementById("f-venue").value = state.venue||"";
+    updateSubCount();
+  }
+  function updateSubCount(){
+    var n = (state.subtitle||"").length;
+    document.getElementById("f-sub-count").textContent = (180-n)+" characters left";
+  }
+  function field(id, key){
+    document.getElementById(id).addEventListener("input", function(e){
+      state[key] = e.target.value; save();
+      if(key==="subtitle") updateSubCount();
+      renderHero();
+    });
+  }
+
+  /* ── panel open/close ── */
+  var scrim=document.getElementById("scrim"), sheet=document.getElementById("sheet");
+  function openSheet(){ scrim.classList.add("open"); sheet.classList.add("open"); }
+  function closeSheet(){ scrim.classList.remove("open"); sheet.classList.remove("open"); }
+
+  /* ── wire up ── */
+  function init(){
+    applyAccent(); renderHero(); renderModules(); renderTools();
+    renderSwatches(); renderLayoutPick(); fillForm();
+
+    document.getElementById("open-setup").addEventListener("click", openSheet);
+    document.getElementById("close-setup").addEventListener("click", closeSheet);
+    document.getElementById("done-setup").addEventListener("click", closeSheet);
+    scrim.addEventListener("click", closeSheet);
+
+    field("f-name","name"); field("f-sub","subtitle"); field("f-date","date"); field("f-venue","venue");
+
+    document.getElementById("swatches").addEventListener("click", function(e){
+      var b = e.target.closest("[data-accent]"); if(!b) return;
+      state.accent = b.getAttribute("data-accent"); save();
+      applyAccent(); renderSwatches(); renderLayoutPick();
+    });
+    document.getElementById("layout-pick").addEventListener("click", function(e){
+      var b = e.target.closest("[data-layout]"); if(!b) return;
+      state.layout = b.getAttribute("data-layout"); save();
+      renderHero(); renderLayoutPick();
+    });
+    document.getElementById("reset-setup").addEventListener("click", function(){
+      if(!confirm("Reset all competition details to the Seduh sample?")) return;
+      state = Object.assign({}, DEFAULT_EVENT);
+      save(); applyAccent(); renderHero(); renderSwatches(); renderLayoutPick(); fillForm();
+    });
+  }
+  init();
+})();
+</script>
 </body>
 </html>
