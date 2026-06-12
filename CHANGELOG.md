@@ -2,6 +2,37 @@
 
 ---
 
+## [3.6.0] — Design System v4.1 (partial) · June 2026
+
+### shared/theme.css
+- Formalised token system — additive only, all v4.0 contract tokens unchanged
+- New named foundations: type scale (`--fs-*`), weights (`--fw-*`), tracking/leading
+  (`--ls-*`/`--lh-*`), spacing (`--space-1`→`--space-10`), layout (`--container`,
+  `--container-narrow`, `--focus-ring`), border widths (`--bw-*`)
+- New semantic tokens: `--rank-1/-2/-3` (leaderboard medals), `--gmcw-teal/-ink/-grey`
+  (Grey Matter Coffee Werks parent palette), `--text-*` aliases over `--ink*`
+- New surface/border tokens: `--ink2/3/4`, `--surface2/3`, `--border/2/3`, `--am-soft`
+- Brown-tinted shadow tokens (`--shadow-sm/-md/-lg`) formalised — warm paper, never
+  cold grey
+- `.plat-mark` class added — header lockup slot for inline Seduh brew-waves SVG mark;
+  `.plat-hdr-ac` rail retained for back-compat
+- Typography helper classes added: `.eyebrow`, `.mono`, `.label`, `.hint`, `.empty`
+- All `.tmr-*` / `.aud-*` / `#pdf-overlay` overlay classes preserved verbatim
+
+### shared/assets/ (new folder)
+- `seduh-mark.svg` — Seduh brew-waves brand mark (single colour, `currentColor`)
+- `favicon.svg`, `favicon-32.png`, `favicon-16.png`, `apple-touch-icon.png` — favicon set
+
+### CONVENTIONS.md
+- Design System v4.1 section added: new token tables, brand mark usage rules,
+  voice/copy conventions, updated regression guard, known follow-ups
+
+### Deferred to v4.1 completion (post Liga Seduh)
+- `.plat-mark` header markup integration across all module files
+- Module inner `font-family:system-ui` → platform type system
+
+---
+
 ## [3.5.3] — Jun 2025
 
 ### Standalone Timer
