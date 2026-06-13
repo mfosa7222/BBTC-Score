@@ -25,6 +25,28 @@
 .liga-ac{width:4px;height:32px;background:#0b7a52;border-radius:2px;margin-left:4px}
 .btn-gn-lg{border-color:#0b7a52;color:#0b7a52}
 .btn-gn-lg:hover{background:#f0faf5}
+/* Scoring card */
+.sc-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rad);margin-bottom:10px;overflow:hidden}
+.sc-card.active{border-color:var(--bl);box-shadow:0 0 0 3px var(--bl-bg)}
+.sc-card.done{border-color:var(--gn)}
+.sc-hdr{display:flex;align-items:center;gap:8px;padding:.6rem 1rem;background:var(--bg);border-bottom:1.5px solid var(--border);cursor:pointer;user-select:none}
+.sc-hdr:hover{background:var(--border)}
+.sc-hdr-title{font-size:13px;font-weight:700;flex:1}
+.sc-body{padding:1rem}
+.sc-row{display:grid;grid-template-columns:140px 1fr 1fr;gap:8px;align-items:center;margin-bottom:8px}
+.sc-label{font-size:12px;font-weight:700;color:var(--txt2)}
+.sc-section{margin-top:1rem;padding-top:.75rem;border-top:1.5px solid var(--border)}
+.sc-section-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);margin-bottom:.5rem}
+.badge-tb{font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:var(--am-bg);color:var(--am);border:1px solid var(--am-bd);text-transform:uppercase;letter-spacing:.06em}
+.badge-walk{font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:var(--bg);color:var(--txt3);border:1px solid var(--border);text-transform:uppercase;letter-spacing:.06em}
+.result-row{display:flex;align-items:center;gap:8px;padding:.4rem .6rem;border-radius:var(--rad-s);margin-bottom:4px}
+.result-row.p1{background:var(--gn-bg);border:1px solid var(--gn-bd)}
+.result-row.p2{background:var(--bg);border:1px solid var(--border)}
+.result-row.p3{background:var(--bg);border:1px solid var(--border)}
+.result-pos{font-size:11px;font-weight:700;color:var(--txt3);width:24px}
+.result-name{font-size:13px;font-weight:700;flex:1}
+.result-pts{font-size:12px;font-weight:700;color:var(--gn)}
+.result-votes{font-size:12px;color:var(--txt3)}
 </style>
 </head>
 <body>
@@ -324,6 +346,135 @@ function generateSchedule(isRegen) {
   return { ok: false, bestRounds };
 }
 
+/* ── resolveMatch (pure — implements spec §3) ── */
+
+function resolveRevote(remaining, revote) {
+  const [a, b] = remaining;
+  const ra = Object.values(revote || {}).filter(id => id === a).length;
+  const rb = Object.values(revote || {}).filter(id => id === b).length;
+  return ra > rb ? [a, b] : [b, a];
+}
+
+function resolveMatch(m) {
+  const ids = m.brewerIds;
+
+  // Solo walkover
+  if (m.type === 'solo') {
+    const id = ids[0];
+    return { placements: [id], points: { [id]: 3 }, votesRec: { [id]: 3 }, deadlock: false };
+  }
+
+  // Tally initial votes (+ external judgeVotes for the Final)
+  const tally = {};
+  ids.forEach(id => { tally[id] = 0; });
+  Object.values(m.votes).forEach(cupId => { if (tally[cupId] !== undefined) tally[cupId]++; });
+  if (m.isFinal && m.judgeVotes) {
+    m.judgeVotes.forEach(cupId => { if (tally[cupId] !== undefined) tally[cupId]++; });
+  }
+  const total = Object.values(tally).reduce((s, v) => s + v, 0);
+
+  // Duo
+  if (m.type === 'duo') {
+    const [a, b] = ids;
+    const va = tally[a], vb = tally[b];
+    if (va !== vb) {
+      const [first, second] = va > vb ? [a, b] : [b, a];
+      return {
+        placements: [first, second],
+        points: { [first]: 3, [second]: 1 },
+        votesRec: { [first]: Math.max(va, vb), [second]: Math.min(va, vb) },
+        deadlock: false,
+      };
+    }
+    // 1-1 deadlock
+    const winner = m.judgeVote, loser = ids.find(id => id !== winner);
+    return {
+      placements: [winner, loser],
+      points: { [winner]: 3, [loser]: 1 },
+      votesRec: { [winner]: tally[winner] + 1, [loser]: tally[loser] },
+      deadlock: true,
+    };
+  }
+
+  // Triad
+  const sortedDesc = [...ids].sort((a, b) => tally[b] - tally[a]);
+  const [top, mid_, bot] = sortedDesc;
+
+  // Case B: sweep — check BEFORE Case A (3-0-0 also satisfies top !== mid_)
+  if (tally[top] === total) {
+    const remaining = ids.filter(id => id !== top);
+    const [r2, r3] = resolveRevote(remaining, m.revote);
+    return {
+      placements: [top, r2, r3],
+      points: { [top]: 3, [r2]: 1, [r3]: 0 },
+      votesRec: { [top]: tally[top], [r2]: 0, [r3]: 0 },
+      deadlock: false,
+    };
+  }
+
+  // Case A: 2-1-0 clean
+  if (tally[top] !== tally[mid_]) {
+    return {
+      placements: [top, mid_, bot],
+      points: { [top]: 3, [mid_]: 1, [bot]: 0 },
+      votesRec: { [top]: tally[top], [mid_]: tally[mid_], [bot]: tally[bot] },
+      deadlock: false,
+    };
+  }
+
+  // Case C: 1-1-1 deadlock
+  const winner = m.judgeVote;
+  const remaining = ids.filter(id => id !== winner);
+  const [r2, r3] = resolveRevote(remaining, m.revote);
+  return {
+    placements: [winner, r2, r3],
+    points: { [winner]: 3, [r2]: 1, [r3]: 0 },
+    votesRec: { [winner]: tally[winner] + 1, [r2]: tally[r2], [r3]: tally[r3] },
+    deadlock: true,
+  };
+}
+
+// Detect what stage a match is at given its current input data.
+// Returns 'votes' | 'judge' | 'revote' | 'ready' | 'done'
+function matchStage(m) {
+  if (m.done) return 'done';
+  const ids = m.brewerIds;
+  const voterCount = ids.length + (m.isFinal ? m.judgeVotes.length : 0);
+  const votesEntered = Object.keys(m.votes).length + (m.isFinal ? m.judgeVotes.length : 0);
+
+  // Not all votes entered yet
+  if (votesEntered < voterCount) return 'votes';
+
+  // Tally to decide next stage
+  const tally = {};
+  ids.forEach(id => { tally[id] = 0; });
+  Object.values(m.votes).forEach(cupId => { if (tally[cupId] !== undefined) tally[cupId]++; });
+  if (m.isFinal && m.judgeVotes) m.judgeVotes.forEach(cupId => { if (tally[cupId] !== undefined) tally[cupId]++; });
+  const total = Object.values(tally).reduce((s, v) => s + v, 0);
+  const vals = Object.values(tally);
+  const maxVal = Math.max(...vals);
+
+  if (m.type === 'duo') {
+    const [va, vb] = ids.map(id => tally[id]);
+    if (va === vb && !m.judgeVote) return 'judge';
+    return 'ready';
+  }
+
+  // Sweep
+  if (maxVal === total) {
+    if (!m.revote || Object.keys(m.revote).length < ids.length) return 'revote';
+    return 'ready';
+  }
+  // Deadlock: all equal
+  if (vals.every(v => v === vals[0])) {
+    if (!m.judgeVote) return 'judge';
+    if (!m.revote || Object.keys(m.revote).length < ids.length) return 'revote';
+    return 'ready';
+  }
+  // Clean
+  return 'ready';
+}
+
 /* ── Render ── */
 function render() {
   save();
@@ -389,36 +540,191 @@ function rSchedule() {
   return out;
 }
 
-function rMatchCard(m) {
-  const names = m.brewerIds.map(id => {
-    const b = S.brewers.find(br => br.id === id);
-    return b ? esc(b.name) : '?';
-  });
+function brewerName(id) {
+  const b = S.brewers.find(br => br.id === id);
+  return b ? b.name : '?';
+}
 
+function rMatchCard(m) {
+  const isActive = S.scoringMatchId === m.id;
+  const stage = matchStage(m);
+
+  // ── Type badge ──
   const typeBadge = m.type !== 'triad'
-    ? ' <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;'
-      + 'background:var(--bl-bg);color:var(--bl);border:1px solid var(--bl-bd);'
-      + 'text-transform:uppercase;letter-spacing:.08em">' + m.type.toUpperCase() + '</span>'
+    ? '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:var(--bl-bg);color:var(--bl);border:1px solid var(--bl-bd);text-transform:uppercase;letter-spacing:.08em">'
+      + m.type.toUpperCase() + '</span>'
     : '';
 
-  const borderColor = m.done ? 'var(--gn)' : 'var(--border)';
-  const leftRail   = m.done ? '4px solid var(--gn)' : '4px solid var(--bl)';
+  // ── Status indicator ──
+  let statusBadge = '';
+  if (m.done) {
+    if (m.result && m.result.deadlock) statusBadge = ' <span class="badge-tb">⚖ TB</span>';
+    if (m.type === 'solo') statusBadge = ' <span class="badge-walk">Walkover</span>';
+  }
+  const statusIcon = m.done ? '<span style="color:var(--gn);font-weight:700">✓</span>'
+    : isActive ? '<span style="color:var(--bl);font-weight:700">▶</span>'
+    : '<span style="color:var(--txt3)">○</span>';
 
-  const rows = names.map((name, i) =>
-    '<div class="bslot-team"><span class="bslot-name' + (m.done ? ' winner' : '') + '">' + name + '</span></div>'
-    + (i < names.length - 1 ? '<div class="bslot-divider"></div>' : '')
-  ).join('');
+  const cardClass = 'sc-card' + (isActive ? ' active' : '') + (m.done ? ' done' : '');
 
-  return '<div class="bslot' + (m.done ? ' done' : '') + '" style="border-left:' + leftRail + ';margin-bottom:8px">'
-    + '<div class="bslot-hdr"><span>Match ' + (parseInt(m.id, 10) + 1) + '</span>' + typeBadge + '</div>'
-    + '<div class="bslot-teams">' + rows + '</div>'
-    + '<div class="bslot-footer">'
-    + (m.done
-        ? '<span class="bslot-status done-lbl">✓ Scored</span>'
-        : '<span class="bslot-status">Pending</span>')
-    + '<button class="btn-sm btn-o" disabled>▶ Score</button>'
-    + '</div>'
+  let out = '<div class="' + cardClass + '">';
+
+  // ── Header (always visible, click to toggle) ──
+  out += '<div class="sc-hdr" id="sc-hdr-' + m.id + '">'
+    + statusIcon
+    + '<span class="sc-hdr-title">Match ' + (parseInt(m.id, 10) + 1) + '</span>'
+    + typeBadge + statusBadge
+    + '<span style="font-size:11px;color:var(--txt3)">'
+    + m.brewerIds.map(id => esc(brewerName(id))).join(' · ')
+    + '</span>'
     + '</div>';
+
+  // ── Body — done state ──
+  if (m.done && m.result) {
+    out += '<div class="sc-body">' + rDoneBody(m) + '</div>';
+  }
+  // ── Body — active scoring ──
+  else if (isActive) {
+    out += '<div class="sc-body">' + rScoringBody(m, stage) + '</div>';
+  }
+
+  out += '</div>';
+  return out;
+}
+
+function rDoneBody(m) {
+  const res = m.result;
+  const posLabels = ['1st','2nd','3rd'];
+  let out = res.placements.map((id, i) => {
+    const pts = res.points[id];
+    const votes = res.votesRec[id];
+    return '<div class="result-row p' + (i + 1) + '">'
+      + '<span class="result-pos">' + posLabels[i] + '</span>'
+      + '<span class="result-name">' + esc(brewerName(id)) + '</span>'
+      + '<span class="result-votes">' + votes + (votes === 1 ? ' vote' : ' votes') + '</span>'
+      + '<span class="result-pts">' + pts + ' pt' + (pts !== 1 ? 's' : '') + '</span>'
+      + '</div>';
+  }).join('');
+  out += '<div style="margin-top:.75rem;display:flex;gap:8px">'
+    + '<button class="btn-sm btn-o" id="sc-edit-' + m.id + '">✎ Edit result</button>'
+    + '</div>';
+  return out;
+}
+
+function rScoringBody(m, stage) {
+  const ids = m.brewerIds;
+  let out = '';
+
+  // ── Devices (always shown while scoring) ──
+  out += '<div class="sc-section-title" style="margin-bottom:.5rem">Brewing devices <span class="hint">(optional)</span></div>';
+  out += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:.75rem">';
+  ids.forEach(id => {
+    out += '<div style="display:flex;flex-direction:column;gap:3px">'
+      + '<label style="font-size:11px;font-weight:700;color:var(--txt3)">' + esc(brewerName(id)) + '</label>'
+      + '<select id="sc-dev-' + m.id + '-' + id + '" style="font-size:12px;padding:4px 6px;border-radius:var(--rad-s);border:1.5px solid var(--border);background:var(--surface)">'
+      + '<option value="">—</option>'
+      + S.devices.map(d => '<option value="' + esc(d) + '"' + (m.devices[id] === d ? ' selected' : '') + '>' + esc(d) + '</option>').join('')
+      + '</select></div>';
+  });
+  out += '</div>';
+
+  // ── Initial votes ──
+  out += '<div class="sc-section"><div class="sc-section-title">Whose cup did each brewer vote for?</div>';
+  const allVoters = [...ids];
+  if (m.isFinal) {
+    // 2 external judge vote inputs
+    for (let j = 0; j < 2; j++) {
+      allVoters.push('__ext_' + j);
+    }
+  }
+  ids.forEach(voterId => {
+    const val = m.votes[voterId] || '';
+    out += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      + '<span style="font-size:12px;font-weight:700;width:130px;color:var(--txt2)">' + esc(brewerName(voterId)) + '</span>'
+      + '<select id="sc-vote-' + m.id + '-' + voterId + '" style="font-size:12px;padding:4px 8px;border-radius:var(--rad-s);border:1.5px solid var(--border);background:var(--surface)">'
+      + '<option value="">— pick a cup —</option>'
+      + ids.map(cupId => '<option value="' + cupId + '"' + (val === cupId ? ' selected' : '') + '>' + esc(brewerName(cupId)) + '’s cup</option>').join('')
+      + '</select></div>';
+  });
+  if (m.isFinal) {
+    for (let j = 0; j < 2; j++) {
+      const val = m.judgeVotes[j] || '';
+      out += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+        + '<span style="font-size:12px;font-weight:700;width:130px;color:var(--am)">Judge ' + (j + 1) + '</span>'
+        + '<select id="sc-jvext-' + m.id + '-' + j + '" style="font-size:12px;padding:4px 8px;border-radius:var(--rad-s);border:1.5px solid var(--border);background:var(--surface)">'
+        + '<option value="">— pick a cup —</option>'
+        + ids.map(cupId => '<option value="' + cupId + '"' + (val === cupId ? ' selected' : '') + '>' + esc(brewerName(cupId)) + '’s cup</option>').join('')
+        + '</select></div>';
+    }
+  }
+  out += '</div>';
+
+  // ── Judge vote (deadlock) ──
+  if (stage === 'judge') {
+    out += '<div class="sc-section"><div class="sc-section-title">⚖ Deadlock — tiebreaker judge vote</div>';
+    out += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      + '<span style="font-size:12px;font-weight:700;width:130px;color:var(--am)">Judge picks</span>'
+      + '<select id="sc-jv-' + m.id + '" style="font-size:12px;padding:4px 8px;border-radius:var(--rad-s);border:1.5px solid var(--am-bd);background:var(--am-bg)">'
+      + '<option value="">— pick a cup —</option>'
+      + ids.map(cupId => '<option value="' + cupId + '"' + (m.judgeVote === cupId ? ' selected' : '') + '>' + esc(brewerName(cupId)) + '’s cup</option>').join('')
+      + '</select></div>';
+    out += '</div>';
+  }
+
+  // ── Revote (after sweep or deadlock judge picks winner) ──
+  if (stage === 'revote') {
+    // Determine winner cup to exclude from revote options
+    const tally = {};
+    ids.forEach(id => { tally[id] = 0; });
+    Object.values(m.votes).forEach(cupId => { if (tally[cupId] !== undefined) tally[cupId]++; });
+    if (m.isFinal && m.judgeVotes) m.judgeVotes.forEach(cupId => { if (tally[cupId] !== undefined) tally[cupId]++; });
+    const total = Object.values(tally).reduce((s, v) => s + v, 0);
+    const maxVal = Math.max(...Object.values(tally));
+    const winnerCup = maxVal === total ? ids.find(id => tally[id] === maxVal) : m.judgeVote;
+    const remaining = ids.filter(id => id !== winnerCup);
+
+    out += '<div class="sc-section"><div class="sc-section-title">'
+      + (maxVal === total ? '↺ Revote — winner removed, vote for 2nd place' : '↺ Revote — judge chose ' + esc(brewerName(winnerCup)) + ', vote for 2nd place')
+      + '</div>';
+    ids.forEach(voterId => {
+      const val = m.revote ? (m.revote[voterId] || '') : '';
+      out += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+        + '<span style="font-size:12px;font-weight:700;width:130px;color:var(--txt2)">' + esc(brewerName(voterId)) + '</span>'
+        + '<select id="sc-rv-' + m.id + '-' + voterId + '" style="font-size:12px;padding:4px 8px;border-radius:var(--rad-s);border:1.5px solid var(--border);background:var(--surface)">'
+        + '<option value="">— pick a cup —</option>'
+        + remaining.map(cupId => '<option value="' + cupId + '"' + (val === cupId ? ' selected' : '') + '>' + esc(brewerName(cupId)) + '’s cup</option>').join('')
+        + '</select></div>';
+    });
+    out += '</div>';
+  }
+
+  // ── Result preview + Confirm ──
+  if (stage === 'ready') {
+    const preview = resolveMatch(m);
+    const posLabels = ['1st','2nd','3rd'];
+    out += '<div class="sc-section"><div class="sc-section-title">Result preview</div>';
+    out += preview.placements.map((id, i) => {
+      const pts = preview.points[id];
+      const votes = preview.votesRec[id];
+      return '<div class="result-row p' + (i + 1) + '">'
+        + '<span class="result-pos">' + posLabels[i] + '</span>'
+        + '<span class="result-name">' + esc(brewerName(id)) + '</span>'
+        + '<span class="result-votes">' + votes + (votes === 1 ? ' vote' : ' votes') + '</span>'
+        + '<span class="result-pts">' + pts + ' pt' + (pts !== 1 ? 's' : '') + '</span>'
+        + (preview.deadlock && i === 0 ? ' <span class="badge-tb">⚖ TB</span>' : '')
+        + '</div>';
+    }).join('');
+    out += '<div style="margin-top:.75rem;display:flex;gap:8px">'
+      + '<button class="btn-p" id="sc-confirm-' + m.id + '">✓ Confirm result</button>'
+      + '<button class="btn-o" id="sc-cancel-' + m.id + '">Cancel</button>'
+      + '</div>';
+    out += '</div>';
+  } else {
+    // Cancel always available while active
+    out += '<div style="margin-top:1rem"><button class="btn-o" id="sc-cancel-' + m.id + '">Cancel</button></div>';
+  }
+
+  return out;
 }
 
 function rSetup() {
@@ -574,6 +880,117 @@ function bind() {
     } else {
       render();
     }
+  });
+
+  // ── Scoring card handlers ──
+
+  // Toggle card open/closed (header click). Done cards open only via Edit button.
+  document.querySelectorAll('[id^="sc-hdr-"]').forEach(el => {
+    el.addEventListener('click', () => {
+      const matchId = el.id.slice('sc-hdr-'.length);
+      const m = S.matches.find(x => x.id === matchId);
+      if (!m || m.done) return;
+      S.scoringMatchId = S.scoringMatchId === matchId ? null : matchId;
+      render();
+    });
+  });
+
+  // Edit result — reopen a done match for re-entry
+  document.querySelectorAll('[id^="sc-edit-"]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const matchId = el.id.slice('sc-edit-'.length);
+      const m = S.matches.find(x => x.id === matchId);
+      if (!m) return;
+      m.done = false; m.result = null;
+      S.scoringMatchId = matchId;
+      render();
+    });
+  });
+
+  // Cancel scoring — collapse without saving
+  document.querySelectorAll('[id^="sc-cancel-"]').forEach(el => {
+    el.addEventListener('click', () => { S.scoringMatchId = null; render(); });
+  });
+
+  // Device selects — save without re-render to avoid losing focus
+  document.querySelectorAll('[id^="sc-dev-"]').forEach(el => {
+    el.addEventListener('change', () => {
+      const rest = el.id.slice('sc-dev-'.length);
+      const sep = rest.indexOf('-');
+      const matchId = rest.slice(0, sep), brewerId = rest.slice(sep + 1);
+      const m = S.matches.find(x => x.id === matchId);
+      if (m) { m.devices[brewerId] = el.value; save(); }
+    });
+  });
+
+  // Initial vote selects — changing a vote clears downstream state
+  document.querySelectorAll('[id^="sc-vote-"]').forEach(el => {
+    el.addEventListener('change', () => {
+      const rest = el.id.slice('sc-vote-'.length);
+      const sep = rest.indexOf('-');
+      const matchId = rest.slice(0, sep), voterId = rest.slice(sep + 1);
+      const m = S.matches.find(x => x.id === matchId);
+      if (!m) return;
+      if (el.value) m.votes[voterId] = el.value; else delete m.votes[voterId];
+      m.judgeVote = null; m.revote = null;
+      render();
+    });
+  });
+
+  // External judge votes (Final only) — sc-jvext-{matchId}-{0|1}
+  document.querySelectorAll('[id^="sc-jvext-"]').forEach(el => {
+    el.addEventListener('change', () => {
+      const rest = el.id.slice('sc-jvext-'.length);
+      const sep = rest.lastIndexOf('-');
+      const matchId = rest.slice(0, sep), idx = parseInt(rest.slice(sep + 1), 10);
+      const m = S.matches.find(x => x.id === matchId);
+      if (!m) return;
+      m.judgeVotes[idx] = el.value || null;
+      m.judgeVote = null; m.revote = null;
+      render();
+    });
+  });
+
+  // Tiebreaker judge vote — sc-jv-{matchId} (deadlock, not Final external)
+  document.querySelectorAll('[id^="sc-jv-"]').forEach(el => {
+    if (el.id.startsWith('sc-jvext-')) return; // handled above
+    el.addEventListener('change', () => {
+      const matchId = el.id.slice('sc-jv-'.length);
+      const m = S.matches.find(x => x.id === matchId);
+      if (!m) return;
+      m.judgeVote = el.value || null;
+      m.revote = null;
+      render();
+    });
+  });
+
+  // Revote selects — sc-rv-{matchId}-{voterId}
+  document.querySelectorAll('[id^="sc-rv-"]').forEach(el => {
+    el.addEventListener('change', () => {
+      const rest = el.id.slice('sc-rv-'.length);
+      const sep = rest.indexOf('-');
+      const matchId = rest.slice(0, sep), voterId = rest.slice(sep + 1);
+      const m = S.matches.find(x => x.id === matchId);
+      if (!m) return;
+      m.revote = m.revote || {};
+      if (el.value) m.revote[voterId] = el.value; else delete m.revote[voterId];
+      render();
+    });
+  });
+
+  // Confirm result
+  document.querySelectorAll('[id^="sc-confirm-"]').forEach(el => {
+    el.addEventListener('click', () => {
+      const matchId = el.id.slice('sc-confirm-'.length);
+      const m = S.matches.find(x => x.id === matchId);
+      if (!m) return;
+      m.result = resolveMatch(m);
+      m.done = true;
+      if (!S.scheduleLocked) S.scheduleLocked = true;
+      S.scoringMatchId = null;
+      render();
+    });
   });
 }
 
