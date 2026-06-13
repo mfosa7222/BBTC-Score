@@ -116,6 +116,7 @@ const DEFAULT_STATE = () => ({
   matches: [],
   tab: 'setup',
   scoringMatchId: null,
+  finalBrewerIds: null,   // [id,id,id] once organizer confirms finalists
 });
 
 let S = DEFAULT_STATE();
@@ -439,8 +440,9 @@ function resolveMatch(m) {
 function matchStage(m) {
   if (m.done) return 'done';
   const ids = m.brewerIds;
-  const voterCount = ids.length + (m.isFinal ? m.judgeVotes.length : 0);
-  const votesEntered = Object.keys(m.votes).length + (m.isFinal ? m.judgeVotes.length : 0);
+  const voterCount = ids.length + (m.isFinal ? 2 : 0);
+  const extVotesEntered = m.isFinal ? m.judgeVotes.filter(v => v !== null && v !== '').length : 0;
+  const votesEntered = Object.keys(m.votes).length + extVotesEntered;
 
   // Not all votes entered yet
   if (votesEntered < voterCount) return 'votes';
@@ -475,6 +477,25 @@ function matchStage(m) {
   return 'ready';
 }
 
+function createFinalMatch() {
+  // Remove any existing (unscored) final match before creating a new one
+  S.matches = S.matches.filter(m => !m.isFinal);
+  S.matches.push({
+    id: String(mid++),
+    round: 'final',
+    type: 'triad',
+    isFinal: true,
+    brewerIds: [...S.finalBrewerIds],
+    devices: {},
+    votes: {},
+    judgeVote: null,
+    revote: null,
+    judgeVotes: [null, null],
+    result: null,
+    done: false,
+  });
+}
+
 /* ── Render ── */
 function render() {
   save();
@@ -502,8 +523,8 @@ function rMain() {
     + '<div class="body">'
     + (S.tab === 'setup'      ? rSetup()
       : S.tab === 'schedule'  ? rSchedule()
-      : S.tab === 'standings' ? rPlaceholder('Standings', 'No matches scored yet. Standings will appear here.')
-      : S.tab === 'final'     ? rPlaceholder('Final', 'Complete all regular-season matches to unlock the Final.')
+      : S.tab === 'standings' ? rStandings()
+      : S.tab === 'final'     ? rFinal()
       :                         rPlaceholder('Report', 'Complete the season to generate the report.'))
     + '</div>';
 }
@@ -511,6 +532,226 @@ function rMain() {
 function rPlaceholder(title, msg) {
   return '<div class="empty"><div style="font-size:15px;font-weight:700;margin-bottom:.5rem">' + title + '</div>'
     + '<p class="hint">' + msg + '</p></div>';
+}
+
+/* ── Standings ── */
+
+function calcStandings() {
+  const rows = {};
+  S.brewers.forEach(b => { rows[b.id] = { id: b.id, name: b.name, p: 0, w: 0, votes: 0, pts: 0 }; });
+  S.matches
+    .filter(m => !m.isFinal && m.done && m.result)
+    .forEach(m => {
+      m.brewerIds.forEach(id => {
+        if (!rows[id]) return;
+        rows[id].p++;
+        rows[id].pts  += m.result.points[id]   || 0;
+        rows[id].votes += m.result.votesRec[id] || 0;
+        if (m.result.placements[0] === id) rows[id].w++;
+      });
+    });
+  return Object.values(rows)
+    .sort((a, b) => b.pts - a.pts || b.w - a.w || b.votes - a.votes);
+}
+
+function rStandings() {
+  const st = calcStandings();
+  const anyDone = S.matches.some(m => !m.isFinal && m.done);
+  const allDone = S.matches.filter(m => !m.isFinal).every(m => m.done) && S.matches.filter(m => !m.isFinal).length > 0;
+  const medalColors = ['var(--rank-1,#c9a227)','var(--rank-2,#9ca3af)','var(--rank-3,#b07245)'];
+
+  if (!anyDone) return rPlaceholder('Standings', 'No matches scored yet. Standings will appear here once the first match is confirmed.');
+
+  let out = '';
+  if (!allDone) {
+    const done = S.matches.filter(m => !m.isFinal && m.done).length;
+    const total = S.matches.filter(m => !m.isFinal).length;
+    out += '<div style="padding:.5rem .75rem;background:var(--am-bg);border:1px solid var(--am-bd);border-radius:var(--rad-s);font-size:12px;color:var(--am);margin-bottom:.75rem">'
+      + '⏳ In progress — ' + done + ' of ' + total + ' matches scored. Standings update live.'
+      + '</div>';
+  }
+
+  out += '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rad);overflow:hidden">';
+  // Header
+  out += '<div style="display:grid;grid-template-columns:36px 1fr 36px 36px 52px 52px;gap:0;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
+    + ['Pos','Brewer','P','W','Votes','Pts'].map((h, i) =>
+        '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)'
+        + (i > 1 ? ';text-align:right' : '') + '">' + h + '</span>').join('')
+    + '</div>';
+
+  st.forEach((row, i) => {
+    const isTop3 = i < 3;
+    const medal = isTop3
+      ? '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + medalColors[i] + ';vertical-align:middle"></span>'
+      : '';
+    const pos = isTop3 ? medal : '<span style="font-size:11px;color:var(--txt3);font-weight:700">' + (i + 1) + '</span>';
+    const bg = i === 0 ? 'background:var(--gn-bg)' : (i % 2 === 1 ? 'background:var(--bg)' : '');
+    out += '<div style="display:grid;grid-template-columns:36px 1fr 36px 36px 52px 52px;gap:0;padding:.55rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
+      + '<span style="display:flex;align-items:center;justify-content:center">' + pos + '</span>'
+      + '<span style="font-size:13px;font-weight:' + (isTop3 ? '700' : '600') + ';color:var(--txt)">' + esc(row.name) + '</span>'
+      + ['p','w','votes','pts'].map(k =>
+          '<span style="font-size:13px;font-weight:700;text-align:right;color:' + (k === 'pts' ? 'var(--gn)' : 'var(--txt2)') + '">' + row[k] + '</span>'
+        ).join('')
+      + '</div>';
+  });
+  out += '</div>';
+  return out;
+}
+
+/* ── Final ── */
+
+function allRegularDone() {
+  const reg = S.matches.filter(m => !m.isFinal);
+  return reg.length > 0 && reg.every(m => m.done);
+}
+
+function cutoffTied(standings) {
+  if (standings.length < 4) return false;
+  const p3 = standings[2];
+  return standings.slice(3).some(b => b.pts === p3.pts && b.w === p3.w && b.votes === p3.votes);
+}
+
+function rFinal() {
+  if (!allRegularDone()) {
+    const reg = S.matches.filter(m => !m.isFinal);
+    const done = reg.filter(m => m.done).length;
+    const msg = 'Complete all ' + reg.length + ' regular-season matches to unlock the Final.'
+      + (done > 0 ? ' (' + done + '/' + reg.length + ' done)' : '');
+    return rPlaceholder('Final', msg);
+  }
+
+  const finalMatch = S.matches.find(m => m.isFinal);
+
+  // ── Finalists confirmed: show scoring card or champion ──
+  if (S.finalBrewerIds) {
+    return rFinalMatchView(finalMatch);
+  }
+
+  // ── Finalist selection ──
+  return rFinalistSelection();
+}
+
+function rFinalistSelection() {
+  const standings = calcStandings();
+  const tied = cutoffTied(standings);
+  const medalColors = ['var(--rank-1,#c9a227)','var(--rank-2,#9ca3af)','var(--rank-3,#b07245)'];
+
+  let out = '<div class="card"><div class="card-hdr">Season standings</div><div class="card-body" style="padding:.5rem 0">'
+    + '<div style="display:grid;grid-template-columns:28px 1fr 36px 36px 52px 52px;gap:0;padding:.4rem .75rem;background:var(--bg);border-bottom:1px solid var(--border)">'
+    + ['Pos','Brewer','P','W','Votes','Pts'].map((h, i) =>
+        '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)'
+        + (i > 1 ? ';text-align:right' : '') + '">' + h + '</span>').join('')
+    + '</div>';
+
+  standings.forEach((row, i) => {
+    const isTop3 = i < 3;
+    const medal = isTop3
+      ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + medalColors[i] + '"></span>'
+      : '<span style="font-size:10px;color:var(--txt3);font-weight:700">' + (i + 1) + '</span>';
+    const bg = i < 3 ? 'background:var(--gn-bg)' : (i % 2 === 1 ? 'background:var(--bg)' : '');
+    out += '<div style="display:grid;grid-template-columns:28px 1fr 36px 36px 52px 52px;gap:0;padding:.5rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
+      + '<span style="display:flex;align-items:center;justify-content:center">' + medal + '</span>'
+      + '<span style="font-size:13px;font-weight:' + (isTop3 ? '700' : '500') + '">' + esc(row.name) + '</span>'
+      + ['p','w','votes','pts'].map(k =>
+          '<span style="font-size:12px;text-align:right;color:' + (k === 'pts' ? 'var(--gn);font-weight:700' : 'var(--txt2)') + '">' + row[k] + '</span>'
+        ).join('')
+      + '</div>';
+  });
+  out += '</div></div>';
+
+  // ── Tie warning ──
+  if (tied) {
+    const p3 = standings[2];
+    const tiedGroup = standings.filter(b => b.pts === p3.pts && b.w === p3.w && b.votes === p3.votes);
+    out += '<div style="padding:.75rem 1rem;background:var(--am-bg);border:1.5px solid var(--am-bd);border-radius:var(--rad-s)">'
+      + '<div style="font-size:12px;font-weight:700;color:var(--am);margin-bottom:.4rem">⚖ Tie at the cutoff — rock-paper-scissors required</div>'
+      + '<p class="hint" style="margin-bottom:.75rem">The following brewers are tied for 3rd place. Resolve by RPS at the venue, then select exactly 3 finalists below.</p>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
+      + tiedGroup.map(b =>
+          '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface);border:1.5px solid var(--am-bd);border-radius:var(--rad-s);cursor:pointer;font-size:13px;font-weight:600">'
+          + '<input type="checkbox" class="finalist-pick" data-bid="' + b.id + '" style="accent-color:var(--am)"> ' + esc(b.name)
+          + '</label>').join('')
+      + '</div>'
+      + '<div style="margin-top:.75rem">'
+      + '<button class="btn-p" id="confirm-finalists-tie" disabled>Confirm 3 finalists</button>'
+      + '<span id="finalist-pick-hint" class="hint" style="margin-left:10px">Select exactly 3 brewers to continue.</span>'
+      + '</div>'
+      + '</div>';
+  } else {
+    // Clean top-3
+    const top3 = standings.slice(0, 3);
+    out += '<div style="padding:.75rem 1rem;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rad-s)">'
+      + '<div style="font-size:13px;font-weight:700;margin-bottom:.5rem">The Final</div>'
+      + '<p class="hint" style="margin-bottom:.75rem">Top 3 brewers advance to the Final. Press to lock finalists and open the scoring card.</p>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:.75rem">'
+      + top3.map((b, i) =>
+          '<span style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface);border:1.5px solid var(--gn-bd);border-radius:var(--rad-s);font-size:13px;font-weight:700">'
+          + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + medalColors[i] + '"></span>'
+          + esc(b.name) + '</span>').join('')
+      + '</div>'
+      + '<button class="btn-p" id="confirm-finalists">▶ Lock finalists &amp; start the Final</button>'
+      + '</div>';
+  }
+
+  return out;
+}
+
+function rFinalMatchView(finalMatch) {
+  const medalColors = ['var(--rank-1,#c9a227)','var(--rank-2,#9ca3af)','var(--rank-3,#b07245)'];
+
+  // Header with finalists + change button (only if not yet done)
+  let out = '<div style="padding:.75rem 1rem;background:var(--gn-bg);border:1.5px solid var(--gn-bd);border-radius:var(--rad-s);display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:1rem">'
+    + '<span style="font-size:13px;font-weight:700;color:var(--gn)">The Final</span>'
+    + '<div style="display:flex;gap:6px;flex:1;flex-wrap:wrap">'
+    + S.finalBrewerIds.map((id, i) =>
+        '<span style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--surface);border:1px solid var(--gn-bd);border-radius:99px;font-size:12px;font-weight:700">'
+        + '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + medalColors[i] + '"></span>'
+        + esc(brewerName(id)) + '</span>').join('')
+    + '</div>'
+    + (!finalMatch || !finalMatch.done
+        ? '<button class="btn-sm btn-o" id="reset-finalists" style="white-space:nowrap">✎ Change</button>'
+        : '')
+    + '</div>';
+
+  if (finalMatch) {
+    if (finalMatch.done && finalMatch.result) {
+      out += rFinalChampion(finalMatch);
+    } else {
+      out += rMatchCard(finalMatch);
+    }
+  }
+
+  return out;
+}
+
+function rFinalChampion(finalMatch) {
+  const res = finalMatch.result;
+  const medalColors = ['var(--rank-1,#c9a227)','var(--rank-2,#9ca3af)','var(--rank-3,#b07245)'];
+  const posLabels = ['Champion','Runner-up','3rd place'];
+
+  let out = '<div style="background:var(--gn-bg);border:1.5px solid var(--gn-bd);border-radius:var(--rad);padding:1.25rem;margin-bottom:1rem">'
+    + '<div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gn);margin-bottom:.75rem">Final result'
+    + (res.deadlock ? ' <span class="badge-tb">⚖ TB</span>' : '') + '</div>';
+
+  res.placements.forEach((id, i) => {
+    const pts = res.points[id];
+    const votes = res.votesRec[id];
+    const isChamp = i === 0;
+    out += '<div style="display:flex;align-items:center;gap:10px;padding:.6rem .75rem;border-radius:var(--rad-s);margin-bottom:6px;background:var(--surface);border:1.5px solid ' + (isChamp ? 'var(--gn-bd)' : 'var(--border)') + '">'
+      + '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + medalColors[i] + ';flex-shrink:0"></span>'
+      + '<span style="font-size:11px;color:var(--txt3);font-weight:700;width:72px">' + posLabels[i] + '</span>'
+      + '<span style="font-size:' + (isChamp ? '16' : '14') + 'px;font-weight:700;flex:1">' + esc(brewerName(id)) + '</span>'
+      + '<span style="font-size:12px;color:var(--txt3)">' + votes + (votes === 1 ? ' vote' : ' votes') + '</span>'
+      + '<span style="font-size:13px;font-weight:700;color:var(--gn)">' + pts + ' pt' + (pts !== 1 ? 's' : '') + '</span>'
+      + '</div>';
+  });
+  out += '</div>';
+
+  // League table is unchanged — show a note
+  out += '<div class="hint" style="padding:.5rem .75rem;background:var(--bg);border-radius:var(--rad-s);border:1px solid var(--border)">'
+    + 'The Final result does not change the league table. Season standings remain as recorded above.'
+    + '</div>';
+  return out;
 }
 
 function rSchedule() {
@@ -991,6 +1232,46 @@ function bind() {
       S.scoringMatchId = null;
       render();
     });
+  });
+
+  // ── Final tab handlers ──
+
+  // Confirm clean top-3 finalists
+  on('confirm-finalists', 'click', () => {
+    const st = calcStandings();
+    S.finalBrewerIds = st.slice(0, 3).map(b => b.id);
+    createFinalMatch();
+    render();
+  });
+
+  // Confirm tie-pick finalists (checkbox selection)
+  on('confirm-finalists-tie', 'click', () => {
+    const checked = [...document.querySelectorAll('.finalist-pick:checked')].map(cb => cb.dataset.bid);
+    if (checked.length !== 3) return;
+    S.finalBrewerIds = checked;
+    createFinalMatch();
+    render();
+  });
+
+  // Live validation of tie checkboxes
+  document.querySelectorAll('.finalist-pick').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const checked = document.querySelectorAll('.finalist-pick:checked').length;
+      const btn = $('confirm-finalists-tie');
+      const hint = $('finalist-pick-hint');
+      if (btn) btn.disabled = checked !== 3;
+      if (hint) hint.textContent = checked === 3 ? 'Ready — click to lock finalists.' : 'Select exactly 3 brewers to continue.';
+    });
+  });
+
+  // Reset finalists (allow changing before final is scored)
+  on('reset-finalists', 'click', () => {
+    const finalMatch = S.matches.find(m => m.isFinal);
+    if (finalMatch && finalMatch.done) return; // can't undo a scored final
+    S.matches = S.matches.filter(m => !m.isFinal);
+    S.finalBrewerIds = null;
+    S.scoringMatchId = null;
+    render();
   });
 }
 
