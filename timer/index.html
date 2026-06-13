@@ -184,6 +184,13 @@ body:has(#tmr-overlay.fs) .fs-exit{display:flex}
   text-decoration:none;letter-spacing:.02em;
 }
 .timer-foot-link:hover{color:#F59E0B}
+
+/* Standalone timer: override the shared overlay pattern.
+   The timer IS the page — always visible, in page flow (not a fixed popup).
+   theme.css sets display:none;position:fixed on #tmr-overlay for the popup
+   use-case; we undo that here. Only .fs goes full-screen. */
+#tmr-overlay{display:flex;position:static;inset:auto;background:transparent;z-index:auto}
+#tmr-overlay.fs{position:fixed;inset:0;background:#111827;z-index:1001}
 </style>
 </head>
 <body>

@@ -2,6 +2,15 @@
 
 ---
 
+## [4.0.1] — Timer fixes · June 2026
+
+### Shared
+- **Fix: Timer horn inaudible** — time's-up horn was synthesised at 100–150 Hz, below the range most laptop and phone speakers reproduce. Raised to 330 Hz (square) / 247 Hz (sawtooth) so it carries on any device.
+- **Fix: Last-10-seconds flash not showing on standalone timer page** — `theme.css` sets `#tmr-overlay { display:none; position:fixed }` for the popup overlay pattern used by BBTC and Throwdown. The standalone `timer/index.html` never overrode this, so the timer element was hidden entirely. Added CSS overrides in `timer/index.html` to keep the timer always-visible and in page flow (`position:static`), switching to full-screen fixed only when the `.fs` class is applied.
+- **Timer warning state hardened** — `running` class is removed during the warning window so the red flash can never be overridden by the amber running colour.
+
+---
+
 ## [4.0.0] — Liga Seduh · June 2026
 
 ### liga/index.html (new module)
