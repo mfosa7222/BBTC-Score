@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Liga Seduh Bawah Tanah — Seduh Score</title>
+<link rel="stylesheet" href="../shared/theme.css">
+<style>
+/* ── Liga-specific styles ── */
+.app{max-width:900px;margin:0 auto;padding:0 0 60px}
+.hdr-btns{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.hdr-btn{display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:var(--rad-s);font-size:12px;cursor:pointer;font-weight:600;border:1.5px solid}
+.body{padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:1rem}
+/* Brewer list */
+.p-list{display:flex;flex-direction:column;gap:5px;margin-top:8px;max-height:280px;overflow-y:auto}
+.p-item{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rad-s)}
+.p-seed{font-size:11px;color:var(--txt3);width:20px;text-align:center;font-weight:700}
+.p-name{flex:1;font-size:13px;font-weight:600}
+.p-rm{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:15px;line-height:1;padding:0}
+/* Device chips */
+.dev-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.dev-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:99px;font-size:12px;font-weight:600;color:var(--txt2)}
+.dev-chip-rm{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;line-height:1;padding:0 0 0 2px}
+/* Liga green accent */
+.liga-ac{width:4px;height:32px;background:#0b7a52;border-radius:2px;margin-left:4px}
+.btn-gn-lg{border-color:#0b7a52;color:#0b7a52}
+.btn-gn-lg:hover{background:#f0faf5}
+</style>
+</head>
+<body>
+<!-- Timer overlay (shared) -->
+<div id="tmr-overlay">
+  <div class="tmr-extras">
+    <div class="tmr-presets">
+      <button class="tmr-preset" data-secs="300">5 min</button>
+      <button class="tmr-preset" data-secs="420">7 min</button>
+      <button class="tmr-preset" data-secs="600">10 min</button>
+      <button class="tmr-preset" data-secs="900">15 min</button>
+    </div>
+  </div>
+  <div class="tmr-display" id="tmr-display">10:00</div>
+  <div class="tmr-extras">
+    <div class="tmr-controls">
+      <button class="tmr-btn tmr-start" id="tmr-start">▶ Start</button>
+      <button class="tmr-btn tmr-pause" id="tmr-pause">⏸ Pause</button>
+      <button class="tmr-btn tmr-reset" id="tmr-reset">↺ Reset</button>
+    </div>
+    <div class="tmr-footer">
+      <button id="tmr-close">✕ Close</button>
+      <button id="tmr-fs">⛶ Fullscreen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Audience overlay (shared) -->
+<div id="aud-overlay">
+  <div class="aud-banner">
+    <div class="aud-ac"></div>
+    <div class="aud-title-block">
+      <div class="aud-sub">Seduh Score</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="aud-title">Liga Seduh Bawah Tanah</div>
+        <span class="aud-module-tag badge badge-pu" id="aud-module-tag"></span>
+      </div>
+    </div>
+    <div class="aud-ts" id="aud-ts"></div>
+    <button class="aud-close" id="aud-close">✕ Close</button>
+  </div>
+  <div class="aud-body">
+    <div class="aud-panel"><div class="aud-sec-title">Standings</div><div id="aud-lb"></div></div>
+    <div class="aud-panel"><div class="aud-sec-title">Current round</div><div id="aud-hist"></div></div>
+  </div>
+</div>
+
+<!-- Hidden file input for JSON load -->
+<input type="file" id="json-file-input" accept=".json" style="display:none">
+
+<div class="app" id="app"></div>
+
+<script src="../shared/storage.js"></script>
+<script src="../shared/timer.js"></script>
+<script src="../shared/audience.js"></script>
+<script>
+const STORE = Store('seduh_liga_v1');
+
+const DEVICE_DEFAULTS = ['V60','AeroPress','Kalita Wave','Origami','Orea','Hario Switch','Clever Dripper','Chemex','French Press'];
+
+const DEFAULT_STATE = () => ({
+  eventName: 'Liga Seduh Bawah Tanah', eventDate: '', eventVenue: '',
+  brewers: [],
+  devices: [...DEVICE_DEFAULTS],
+  rounds: 3,
+  scheduleLocked: false,
+  matches: [],
+  tab: 'setup',
+  scoringMatchId: null,
+});
+
+let S = DEFAULT_STATE();
+let mid = 0;
+let bid = 0;
+
+/* ── Boot load ── */
+(function () {
+  const d = STORE.load();
+  if (d) {
+    S = { ...DEFAULT_STATE(), ...d };
+    mid = d._mid || 0;
+    bid = d._bid || 0;
+  }
+})();
+
+function save() {
+  STORE.save({ ...S, _mid: mid, _bid: bid, _module: 'liga' });
+}
+
+/* ── JSON export / import ── */
+function exportJSON() {
+  const data = { ...S, _mid: mid, _bid: bid, _module: 'liga' };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (S.eventName || 'liga-seduh').replace(/\s+/g, '-').toLowerCase() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      if (d._module !== 'liga') {
+        alert('Wrong file — this save is not a Liga Seduh file.');
+        return;
+      }
+      S = { ...DEFAULT_STATE(), ...d };
+      mid = d._mid || 0;
+      bid = d._bid || 0;
+      save();
+      render();
+    } catch {
+      alert('Could not read file. Make sure it is a valid Liga Seduh JSON save.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ── Helpers ── */
+const $ = id => document.getElementById(id);
+const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function maxRounds(n) {
+  return Math.floor((n - 1) / 2);
+}
+
+/* ── Schedule generator ── */
+
+function pairKey(a, b) { return a < b ? a + '|' + b : b + '|' + a; }
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function combos(arr, k) {
+  if (k === 0) return [[]];
+  if (arr.length < k) return [];
+  const [head, ...tail] = arr;
+  return [
+    ...combos(tail, k - 1).map(c => [head, ...c]),
+    ...combos(tail, k),
+  ];
+}
+
+function greedyTriadPartition(ids, metPairs) {
+  const avail = [...ids];
+  const triads = [];
+  while (avail.length >= 3) {
+    const a = avail[0];
+    let found = false;
+    for (let i = 1; i < avail.length - 1 && !found; i++) {
+      for (let j = i + 1; j < avail.length && !found; j++) {
+        const b = avail[i], c = avail[j];
+        if (
+          !metPairs.has(pairKey(a, b)) &&
+          !metPairs.has(pairKey(a, c)) &&
+          !metPairs.has(pairKey(b, c))
+        ) {
+          triads.push([ a, b, c ]);
+          avail.splice(j, 1); avail.splice(i, 1); avail.shift();
+          found = true;
+        }
+      }
+    }
+    if (!found) return null;
+  }
+  return triads;
+}
+
+function tryTriadPartition(ids, metPairs, maxTries) {
+  maxTries = maxTries || 80;
+  for (let t = 0; t < maxTries; t++) {
+    const ordered = t === 0 ? [...ids] : shuffle([...ids]);
+    const result = greedyTriadPartition(ordered, metPairs);
+    if (result) return result;
+  }
+  return null;
+}
+
+function tryDuoPairing(cands, numDuos, metPairs) {
+  if (numDuos === 1) {
+    const [a, b] = cands;
+    return metPairs.has(pairKey(a, b)) ? null
+      : [{ type: 'duo', brewerIds: [a, b] }];
+  }
+  const [a, b, c, d] = cands;
+  for (const [x1, y1, x2, y2] of [[a,b,c,d],[a,c,b,d],[a,d,b,c]]) {
+    if (!metPairs.has(pairKey(x1, y1)) && !metPairs.has(pairKey(x2, y2))) {
+      return [
+        { type: 'duo', brewerIds: [x1, y1] },
+        { type: 'duo', brewerIds: [x2, y2] },
+      ];
+    }
+  }
+  return null;
+}
+
+function attemptRound(brewerIds, duosPerRound, metPairs, duoCounts) {
+  if (duosPerRound === 0) {
+    const triads = tryTriadPartition(shuffle([...brewerIds]), metPairs);
+    return triads ? triads.map(ids => ({ type: 'triad', brewerIds: ids })) : null;
+  }
+
+  const numDuoCands = duosPerRound * 2;
+  const ranked = shuffle([...brewerIds])
+    .sort((a, b) => (duoCounts[a] || 0) - (duoCounts[b] || 0));
+
+  const allCombos = combos(ranked, numDuoCands)
+    .sort((a, b) =>
+      a.reduce((s, id) => s + (duoCounts[id] || 0), 0) -
+      b.reduce((s, id) => s + (duoCounts[id] || 0), 0)
+    );
+
+  for (const cands of allCombos) {
+    const duos = tryDuoPairing(cands, duosPerRound, metPairs);
+    if (!duos) continue;
+    const triadIds = ranked.filter(id => !cands.includes(id));
+    const triadGroups = tryTriadPartition(triadIds, metPairs, 40);
+    if (triadGroups) {
+      return [...duos, ...triadGroups.map(ids => ({ type: 'triad', brewerIds: ids }))];
+    }
+  }
+  return null;
+}
+
+function generateSchedule(isRegen) {
+  const N = S.brewers.length;
+  const R = S.rounds;
+  const duosPerRound = N % 3 === 0 ? 0 : N % 3 === 2 ? 1 : 2;
+  const brewerIds = S.brewers.map(b => b.id);
+  const MAX_ATTEMPTS = 5000;
+  let bestRounds = 0;
+
+  if (!isRegen) {
+    S._scheduleBaseMid = mid;
+  } else {
+    mid = S._scheduleBaseMid || 0;
+  }
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const metPairs = new Set();
+    const duoCounts = {};
+    brewerIds.forEach(id => { duoCounts[id] = 0; });
+    const allMatches = [];
+    let ok = true;
+
+    for (let r = 1; r <= R; r++) {
+      const roundMatches = attemptRound(brewerIds, duosPerRound, metPairs, duoCounts);
+      if (!roundMatches) { ok = false; break; }
+
+      roundMatches.forEach(m => {
+        const ids = m.brewerIds;
+        for (let i = 0; i < ids.length; i++)
+          for (let j = i + 1; j < ids.length; j++)
+            metPairs.add(pairKey(ids[i], ids[j]));
+        if (m.type !== 'triad') ids.forEach(id => { duoCounts[id]++; });
+        allMatches.push({ ...m, round: r });
+      });
+      if (r > bestRounds) bestRounds = r;
+    }
+
+    if (ok) {
+      S.matches = allMatches.map((m, i) => ({
+        id: String(mid + i),
+        round: m.round,
+        type: m.type,
+        isFinal: false,
+        brewerIds: m.brewerIds,
+        devices: {},
+        votes: {},
+        judgeVote: null,
+        revote: null,
+        judgeVotes: [],
+        result: null,
+        done: false,
+      }));
+      mid += allMatches.length;
+      S.tab = 'schedule';
+      save();
+      return { ok: true };
+    }
+  }
+
+  return { ok: false, bestRounds };
+}
+
+/* ── Render ── */
+function render() {
+  save();
+  document.getElementById('app').innerHTML = rMain();
+  bind();
+}
+
+function rMain() {
+  const tabs = [['setup','Setup'],['schedule','Schedule'],['standings','Standings'],['final','Final'],['report','Report']];
+  return '<div class="plat-hdr">'
+    + '<a href="../index.html" class="plat-back">← Seduh Score</a>'
+    + '<div class="liga-ac"></div>'
+    + '<div><div class="plat-hdr-sub" style="font-size:10px;color:#0b7a52;font-weight:700;letter-spacing:.15em;text-transform:uppercase">Seduh Score</div>'
+    + '<div class="plat-hdr-name">' + esc(S.eventName || 'Liga Seduh Bawah Tanah') + '</div></div>'
+    + '<div class="hdr-btns">'
+    + '<button class="hdr-btn btn-gn-lg" id="tmrbtn">⏱ Timer</button>'
+    + '<button class="hdr-btn btn-gn-lg" id="audbtn">📺 Audience</button>'
+    + '<button class="hdr-btn btn-gn-lg" id="savebtn">⬇ Save</button>'
+    + '<button class="hdr-btn btn-gn-lg" id="loadbtn">⬆ Load</button>'
+    + '<button class="hdr-btn btn-rd" id="resetbtn">↺ Reset</button>'
+    + '</div></div>'
+    + '<div class="tabs">'
+    + tabs.map(([t, l]) => '<button class="tbtn' + (S.tab === t ? ' on' : '') + '" data-tab="' + t + '">' + l + '</button>').join('')
+    + '</div>'
+    + '<div class="body">'
+    + (S.tab === 'setup'      ? rSetup()
+      : S.tab === 'schedule'  ? rSchedule()
+      : S.tab === 'standings' ? rPlaceholder('Standings', 'No matches scored yet. Standings will appear here.')
+      : S.tab === 'final'     ? rPlaceholder('Final', 'Complete all regular-season matches to unlock the Final.')
+      :                         rPlaceholder('Report', 'Complete the season to generate the report.'))
+    + '</div>';
+}
+
+function rPlaceholder(title, msg) {
+  return '<div class="empty"><div style="font-size:15px;font-weight:700;margin-bottom:.5rem">' + title + '</div>'
+    + '<p class="hint">' + msg + '</p></div>';
+}
+
+function rSchedule() {
+  if (!S.matches.length) {
+    return rPlaceholder('Schedule', 'Generate a schedule in Setup to see matches here.');
+  }
+
+  let out = '';
+
+  if (!S.scheduleLocked) {
+    out += '<div style="padding:.75rem 1rem;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rad-s);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+      + '<span class="hint">Schedule generated — regenerate to randomize again. Locked once the first match is scored.</span>'
+      + '<button class="btn-o" id="regen-btn">↺ Regenerate</button>'
+      + '</div>';
+  }
+
+  // Group by round
+  const byRound = {};
+  S.matches.forEach(m => { (byRound[m.round] = byRound[m.round] || []).push(m); });
+
+  Object.keys(byRound).sort((a, b) => +a - +b).forEach(r => {
+    out += '<div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;'
+      + 'color:var(--bl);border-left:3px solid var(--bl);padding-left:8px;margin-bottom:8px;margin-top:.25rem">Round ' + r + '</div>';
+    out += byRound[r].map(m => rMatchCard(m)).join('');
+  });
+
+  return out;
+}
+
+function rMatchCard(m) {
+  const names = m.brewerIds.map(id => {
+    const b = S.brewers.find(br => br.id === id);
+    return b ? esc(b.name) : '?';
+  });
+
+  const typeBadge = m.type !== 'triad'
+    ? ' <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;'
+      + 'background:var(--bl-bg);color:var(--bl);border:1px solid var(--bl-bd);'
+      + 'text-transform:uppercase;letter-spacing:.08em">' + m.type.toUpperCase() + '</span>'
+    : '';
+
+  const borderColor = m.done ? 'var(--gn)' : 'var(--border)';
+  const leftRail   = m.done ? '4px solid var(--gn)' : '4px solid var(--bl)';
+
+  const rows = names.map((name, i) =>
+    '<div class="bslot-team"><span class="bslot-name' + (m.done ? ' winner' : '') + '">' + name + '</span></div>'
+    + (i < names.length - 1 ? '<div class="bslot-divider"></div>' : '')
+  ).join('');
+
+  return '<div class="bslot' + (m.done ? ' done' : '') + '" style="border-left:' + leftRail + ';margin-bottom:8px">'
+    + '<div class="bslot-hdr"><span>Match ' + (parseInt(m.id, 10) + 1) + '</span>' + typeBadge + '</div>'
+    + '<div class="bslot-teams">' + rows + '</div>'
+    + '<div class="bslot-footer">'
+    + (m.done
+        ? '<span class="bslot-status done-lbl">✓ Scored</span>'
+        : '<span class="bslot-status">Pending</span>')
+    + '<button class="btn-sm btn-o" disabled>▶ Score</button>'
+    + '</div>'
+    + '</div>';
+}
+
+function rSetup() {
+  const n = S.brewers.length;
+  const maxR = n >= 3 ? maxRounds(n) : 0;
+  const roundsOk = n >= 3 && S.rounds >= 1 && S.rounds <= maxR;
+  const canGen = roundsOk;
+
+  let roundsNote;
+  if (n < 3) {
+    roundsNote = '<p class="hint" style="margin-top:6px;color:var(--rd)">Add at least 3 brewers to set rounds.</p>';
+  } else if (S.rounds > maxR) {
+    roundsNote = '<p class="hint" style="margin-top:6px;color:var(--rd)">Max ' + maxR + ' round' + (maxR !== 1 ? 's' : '') + ' for ' + n + ' brewers (ceiling: floor((N−1)/2)). Reduce rounds or add more brewers.</p>';
+  } else {
+    roundsNote = '<p class="hint" style="margin-top:6px;color:var(--gn)">✓ ' + n + ' brewers · ' + S.rounds + ' of ' + maxR + ' max round' + (maxR !== 1 ? 's' : '') + '.</p>';
+  }
+
+  return '<div class="card"><div class="card-hdr">Event info</div><div class="card-body">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'
+    + '<div><label class="field-lbl">Event name</label><input id="ev-name" type="text" value="' + esc(S.eventName) + '" placeholder="e.g. Liga Seduh Vol. 1"/></div>'
+    + '<div><label class="field-lbl">Date</label><input id="ev-date" type="text" value="' + esc(S.eventDate) + '" placeholder="e.g. 20 July 2025"/></div>'
+    + '<div><label class="field-lbl">Venue</label><input id="ev-venue" type="text" value="' + esc(S.eventVenue) + '" placeholder="e.g. Grey Matter HQ"/></div>'
+    + '</div></div></div>'
+
+    + '<div class="card"><div class="card-hdr">Season rounds</div><div class="card-body">'
+    + '<div style="display:flex;align-items:center;gap:12px">'
+    + '<label class="field-lbl" style="margin-bottom:0;white-space:nowrap">Number of rounds</label>'
+    + '<input id="rounds-input" type="number" min="1" max="' + (maxR || 99) + '" value="' + S.rounds + '" style="width:72px;text-align:center;font-size:18px;font-weight:700"' + (S.scheduleLocked ? ' disabled' : '') + '/>'
+    + '</div>'
+    + roundsNote
+    + (S.scheduleLocked ? '<p class="hint" style="margin-top:6px;color:var(--am)">⚠ Roster and rounds are locked — first match has been scored.</p>' : '')
+    + '</div></div>'
+
+    + '<div class="card"><div class="card-hdr">Brewer roster — ' + n + ' entered</div><div class="card-body">'
+    + (S.scheduleLocked ? '<p class="hint" style="margin-bottom:8px;color:var(--am)">Roster locked after first match is scored.</p>' : '')
+    + '<div class="ir"><input id="b-inp" type="text" placeholder="Brewer name…" style="width:auto"'
+    + (S.scheduleLocked ? ' disabled' : '') + '/><button class="btn-p" id="b-add"'
+    + (S.scheduleLocked ? ' disabled' : '') + '>Add</button></div>'
+    + (n
+        ? '<div class="p-list">' + S.brewers.map((b, i) =>
+            '<div class="p-item"><span class="p-seed">' + (i + 1) + '</span>'
+            + '<span class="p-name">' + esc(b.name) + '</span>'
+            + (S.scheduleLocked ? '' : '<button class="p-rm" data-brm="' + b.id + '">×</button>')
+            + '</div>').join('') + '</div>'
+        : '<p class="hint" style="margin-top:10px">No brewers yet. Add at least 3 to generate a schedule.</p>')
+    + '</div></div>'
+
+    + '<div class="card"><div class="card-hdr">Brewing devices</div><div class="card-body">'
+    + '<p class="hint" style="margin-bottom:4px">Devices available on each match card. Optional per match.</p>'
+    + '<div class="dev-list">'
+    + S.devices.map((d, i) =>
+        '<div class="dev-chip"><span>' + esc(d) + '</span>'
+        + '<button class="dev-chip-rm" data-drm="' + i + '" title="Remove ' + esc(d) + '">×</button></div>').join('')
+    + '</div>'
+    + '<div class="ir" style="margin-top:10px"><input id="dev-inp" type="text" placeholder="Add device…" style="width:auto"/>'
+    + '<button class="btn-o" id="dev-add">Add</button></div>'
+    + '</div></div>'
+
+    + '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'
+    + '<button class="btn-p" id="gen-schedule"' + (canGen ? '' : ' disabled') + '>▶ Generate schedule &amp; start</button>'
+    + (canGen
+        ? '<span class="hint">' + n + ' brewers · ' + S.rounds + ' round' + (S.rounds !== 1 ? 's' : '') + '</span>'
+        : '<span class="hint" style="color:var(--rd)">Fix the issues above first.</span>')
+    + '</div>';
+}
+
+/* ── Audience (stub — full wiring in Phase 5) ── */
+function showAudience() {
+  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  $('aud-ts').innerHTML = esc(S.eventName || 'Liga Seduh') + '<br>' + now;
+  $('aud-module-tag').textContent = 'Season';
+  $('aud-lb').innerHTML = '<div style="text-align:center;padding:2.5rem;color:#9CA3AF">No data yet.</div>';
+  $('aud-hist').innerHTML = '<div style="text-align:center;padding:2.5rem;color:#9CA3AF">No matches yet.</div>';
+  $('aud-overlay').classList.add('show');
+}
+
+/* ── Bind ── */
+function bind() {
+  on('tmrbtn', 'click', () => Timer.open());
+  on('aud-close', 'click', () => $('aud-overlay').classList.remove('show'));
+  on('audbtn', 'click', showAudience);
+
+  // Tabs
+  document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { S.tab = b.dataset.tab; render(); }));
+
+  // Header actions
+  on('savebtn', 'click', exportJSON);
+  on('loadbtn', 'click', () => { $('json-file-input').value = ''; $('json-file-input').click(); });
+  on('json-file-input', 'change', e => { if (e.target.files[0]) importJSON(e.target.files[0]); });
+  on('resetbtn', 'click', () => {
+    if (confirm('Reset all Liga Seduh data? This cannot be undone.')) {
+      STORE.clear(); mid = 0; bid = 0; S = DEFAULT_STATE(); render();
+    }
+  });
+
+  // Event info
+  [['ev-name','eventName'],['ev-date','eventDate'],['ev-venue','eventVenue']].forEach(([id, key]) => {
+    on(id, 'input', () => { S[key] = $(id).value; save(); });
+  });
+
+  // Rounds
+  on('rounds-input', 'input', () => {
+    const val = parseInt($('rounds-input').value, 10);
+    if (!isNaN(val) && val >= 1) { S.rounds = val; render(); }
+  });
+
+  // Brewers
+  const addBrewer = () => {
+    const inp = $('b-inp'); if (!inp) return;
+    const name = inp.value.trim();
+    if (name && !S.brewers.some(b => b.name.toLowerCase() === name.toLowerCase())) {
+      S.brewers.push({ id: String(bid++), name });
+      inp.value = ''; render();
+    } else inp.value = '';
+  };
+  on('b-add', 'click', addBrewer);
+  on('b-inp', 'keydown', e => e.key === 'Enter' && addBrewer());
+  document.querySelectorAll('[data-brm]').forEach(b => b.addEventListener('click', () => {
+    S.brewers = S.brewers.filter(br => br.id !== b.dataset.brm); render();
+  }));
+
+  // Devices
+  const addDevice = () => {
+    const inp = $('dev-inp'); if (!inp) return;
+    const name = inp.value.trim();
+    if (name && !S.devices.includes(name)) {
+      S.devices.push(name); inp.value = ''; render();
+    } else inp.value = '';
+  };
+  on('dev-add', 'click', addDevice);
+  on('dev-inp', 'keydown', e => e.key === 'Enter' && addDevice());
+  document.querySelectorAll('[data-drm]').forEach(b => b.addEventListener('click', () => {
+    S.devices.splice(+b.dataset.drm, 1); render();
+  }));
+
+  // Generate / regenerate schedule
+  on('gen-schedule', 'click', () => {
+    const result = generateSchedule(false);
+    if (!result.ok) {
+      alert('Could not find a valid no-repeat schedule after 5000 attempts.\n'
+        + 'Best achieved: ' + result.bestRounds + ' round(s).\n'
+        + 'Try reducing rounds or adding more brewers.');
+    } else {
+      render();
+    }
+  });
+  on('regen-btn', 'click', () => {
+    if (S.scheduleLocked) return;
+    const result = generateSchedule(true);
+    if (!result.ok) {
+      alert('Could not regenerate a valid schedule.\n'
+        + 'Best achieved: ' + result.bestRounds + ' round(s).');
+    } else {
+      render();
+    }
+  });
+}
+
+Timer.init();
+render();
+</script>
+</body>
+</html>
