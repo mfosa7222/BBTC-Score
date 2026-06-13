@@ -426,6 +426,17 @@ function resolveMatch(m) {
     };
   }
 
+  // Case D: top two tied, third eliminated — revote between the tied pair
+  if (tally[mid_] > tally[bot]) {
+    const [r1, r2] = resolveRevote([top, mid_], m.revote);
+    return {
+      placements: [r1, r2, bot],
+      points: { [r1]: 3, [r2]: 1, [bot]: 0 },
+      votesRec: { [r1]: tally[r1], [r2]: tally[r2], [bot]: tally[bot] },
+      deadlock: false,
+    };
+  }
+
   // Case C: 1-1-1 deadlock
   const winner = m.judgeVote;
   const remaining = ids.filter(id => id !== winner);
@@ -475,6 +486,15 @@ function matchStage(m) {
     if (!m.judgeVote) return 'judge';
     if (!m.revote || Object.keys(m.revote).length < ids.length) return 'revote';
     return 'ready';
+  }
+  // Tietop: top two tied, third eliminated — only possible in Finals with 5-vote pool
+  if (ids.length === 3) {
+    const st = [...ids].sort((a, b) => tally[b] - tally[a]);
+    if (tally[st[0]] === tally[st[1]] && tally[st[1]] > tally[st[2]]) {
+      const bDone = ids.every(id => m.revote && m.revote[id]);
+      const eDone = !m.isFinal || (['ext_0','ext_1'].every(k => m.revote && m.revote[k]));
+      return (bDone && eDone) ? 'ready' : 'tietop';
+    }
   }
   // Clean
   return 'ready';
@@ -542,16 +562,19 @@ function rPlaceholder(title, msg) {
 
 function calcStandings() {
   const rows = {};
-  S.brewers.forEach(b => { rows[b.id] = { id: b.id, name: b.name, p: 0, w: 0, votes: 0, pts: 0 }; });
+  S.brewers.forEach(b => { rows[b.id] = { id: b.id, name: b.name, p: 0, w: 0, s2: 0, s3: 0, votes: 0, pts: 0 }; });
   S.matches
     .filter(m => !m.isFinal && m.done && m.result)
     .forEach(m => {
       m.brewerIds.forEach(id => {
         if (!rows[id]) return;
         rows[id].p++;
-        rows[id].pts  += m.result.points[id]   || 0;
+        rows[id].pts   += m.result.points[id]   || 0;
         rows[id].votes += m.result.votesRec[id] || 0;
-        if (m.result.placements[0] === id) rows[id].w++;
+        const pos = m.result.placements.indexOf(id);
+        if (pos === 0) rows[id].w++;
+        else if (pos === 1) rows[id].s2++;
+        else if (pos === 2) rows[id].s3++;
       });
     });
   return Object.values(rows)
@@ -577,8 +600,8 @@ function rStandings() {
 
   out += '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rad);overflow:hidden">';
   // Header
-  out += '<div style="display:grid;grid-template-columns:36px 1fr 36px 36px 52px 52px;gap:0;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
-    + ['Pos','Brewer','P','W','Votes','Pts'].map((h, i) =>
+  out += '<div style="display:grid;grid-template-columns:36px 1fr 32px 40px 40px 40px 52px 52px;gap:0;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
+    + ['Pos','Brewer','P','1st','2nd','3rd','Votes','Pts'].map((h, i) =>
         '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)'
         + (i > 1 ? ';text-align:right' : '') + '">' + h + '</span>').join('')
     + '</div>';
@@ -590,10 +613,10 @@ function rStandings() {
       : '';
     const pos = isTop3 ? medal : '<span style="font-size:11px;color:var(--txt3);font-weight:700">' + (i + 1) + '</span>';
     const bg = i === 0 ? 'background:var(--gn-bg)' : (i % 2 === 1 ? 'background:var(--bg)' : '');
-    out += '<div style="display:grid;grid-template-columns:36px 1fr 36px 36px 52px 52px;gap:0;padding:.55rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
+    out += '<div style="display:grid;grid-template-columns:36px 1fr 32px 40px 40px 40px 52px 52px;gap:0;padding:.55rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
       + '<span style="display:flex;align-items:center;justify-content:center">' + pos + '</span>'
       + '<span style="font-size:13px;font-weight:' + (isTop3 ? '700' : '600') + ';color:var(--txt)">' + esc(row.name) + '</span>'
-      + ['p','w','votes','pts'].map(k =>
+      + ['p','w','s2','s3','votes','pts'].map(k =>
           '<span style="font-size:13px;font-weight:700;text-align:right;color:' + (k === 'pts' ? 'var(--gn)' : 'var(--txt2)') + '">' + row[k] + '</span>'
         ).join('')
       + '</div>';
@@ -641,8 +664,8 @@ function rFinalistSelection() {
   const medalColors = ['var(--rank-1,#c9a227)','var(--rank-2,#9ca3af)','var(--rank-3,#b07245)'];
 
   let out = '<div class="card"><div class="card-hdr">Season standings</div><div class="card-body" style="padding:.5rem 0">'
-    + '<div style="display:grid;grid-template-columns:28px 1fr 36px 36px 52px 52px;gap:0;padding:.4rem .75rem;background:var(--bg);border-bottom:1px solid var(--border)">'
-    + ['Pos','Brewer','P','W','Votes','Pts'].map((h, i) =>
+    + '<div style="display:grid;grid-template-columns:28px 1fr 28px 36px 36px 36px 52px 52px;gap:0;padding:.4rem .75rem;background:var(--bg);border-bottom:1px solid var(--border)">'
+    + ['Pos','Brewer','P','1st','2nd','3rd','Votes','Pts'].map((h, i) =>
         '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)'
         + (i > 1 ? ';text-align:right' : '') + '">' + h + '</span>').join('')
     + '</div>';
@@ -653,10 +676,10 @@ function rFinalistSelection() {
       ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + medalColors[i] + '"></span>'
       : '<span style="font-size:10px;color:var(--txt3);font-weight:700">' + (i + 1) + '</span>';
     const bg = i < 3 ? 'background:var(--gn-bg)' : (i % 2 === 1 ? 'background:var(--bg)' : '');
-    out += '<div style="display:grid;grid-template-columns:28px 1fr 36px 36px 52px 52px;gap:0;padding:.5rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
+    out += '<div style="display:grid;grid-template-columns:28px 1fr 28px 36px 36px 36px 52px 52px;gap:0;padding:.5rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
       + '<span style="display:flex;align-items:center;justify-content:center">' + medal + '</span>'
       + '<span style="font-size:13px;font-weight:' + (isTop3 ? '700' : '500') + '">' + esc(row.name) + '</span>'
-      + ['p','w','votes','pts'].map(k =>
+      + ['p','w','s2','s3','votes','pts'].map(k =>
           '<span style="font-size:12px;text-align:right;color:' + (k === 'pts' ? 'var(--gn);font-weight:700' : 'var(--txt2)') + '">' + row[k] + '</span>'
         ).join('')
       + '</div>';
@@ -780,8 +803,8 @@ function rReport() {
 
   // ── League table ──
   out += '<div class="card"><div class="card-hdr">Season standings</div><div class="card-body" style="padding:0">';
-  out += '<div style="display:grid;grid-template-columns:36px 1fr 36px 36px 52px 52px;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
-    + ['Pos','Brewer','P','W','Votes','Pts'].map((h, i) =>
+  out += '<div style="display:grid;grid-template-columns:36px 1fr 32px 40px 40px 40px 52px 52px;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
+    + ['Pos','Brewer','P','1st','2nd','3rd','Votes','Pts'].map((h, i) =>
         '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)' + (i > 1 ? ';text-align:right' : '') + '">' + h + '</span>').join('')
     + '</div>';
   standings.forEach((row, i) => {
@@ -791,10 +814,10 @@ function rReport() {
       : '';
     const pos = isTop3 ? medal : '<span style="font-size:11px;color:var(--txt3);font-weight:700">' + (i + 1) + '</span>';
     const bg = i === 0 ? 'background:var(--gn-bg)' : (i % 2 === 1 ? 'background:var(--bg)' : '');
-    out += '<div style="display:grid;grid-template-columns:36px 1fr 36px 36px 52px 52px;padding:.55rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
+    out += '<div style="display:grid;grid-template-columns:36px 1fr 32px 40px 40px 40px 52px 52px;padding:.55rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
       + '<span style="display:flex;align-items:center;justify-content:center">' + pos + '</span>'
       + '<span style="font-size:13px;font-weight:' + (isTop3 ? '700' : '600') + ';color:var(--txt)">' + esc(row.name) + '</span>'
-      + ['p','w','votes','pts'].map(k =>
+      + ['p','w','s2','s3','votes','pts'].map(k =>
           '<span style="font-size:13px;font-weight:700;text-align:right;color:' + (k === 'pts' ? 'var(--gn)' : 'var(--txt2)') + '">' + row[k] + '</span>').join('')
       + '</div>';
   });
@@ -819,16 +842,15 @@ function rReport() {
 
   if (devList.length > 0) {
     out += '<div class="card"><div class="card-hdr">Device usage</div><div class="card-body" style="padding:0">';
-    out += '<div style="display:grid;grid-template-columns:1fr 72px 72px;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
-      + ['Device','Matches','Wins'].map((h, i) =>
+    out += '<div style="display:grid;grid-template-columns:1fr 72px;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
+      + ['Device','Uses'].map((h, i) =>
           '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)' + (i > 0 ? ';text-align:right' : '') + '">' + h + '</span>').join('')
       + '</div>';
     devList.forEach((dev, i) => {
       const bg = i % 2 === 1 ? 'background:var(--bg)' : '';
-      out += '<div style="display:grid;grid-template-columns:1fr 72px 72px;padding:.5rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
+      out += '<div style="display:grid;grid-template-columns:1fr 72px;padding:.5rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
         + '<span style="font-size:13px;color:var(--txt)">' + esc(dev) + '</span>'
         + '<span style="font-size:13px;font-weight:700;text-align:right;color:var(--txt2)">' + devMatchCount[dev] + '</span>'
-        + '<span style="font-size:13px;font-weight:700;text-align:right;color:var(--gn)">' + (devWinCount[dev] || 0) + '</span>'
         + '</div>';
     });
     out += '</div></div>';
@@ -836,20 +858,20 @@ function rReport() {
 
   // ── Per-brewer summary ──
   out += '<div class="card"><div class="card-hdr">Per-brewer summary</div><div class="card-body" style="padding:0">';
-  out += '<div style="display:grid;grid-template-columns:1fr 36px 36px 52px 52px 1fr;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
-    + ['Brewer','P','W','Vts','Pts','Devices'].map((h, i) =>
+  out += '<div style="display:grid;grid-template-columns:1fr 36px 36px 52px 52px 1fr;column-gap:12px;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
+    + ['Brewer','P','1st','Vts','Pts','Devices'].map((h, i) =>
         '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)' + (i > 0 && i < 5 ? ';text-align:right' : '') + '">' + h + '</span>').join('')
     + '</div>';
   standings.forEach((row, i) => {
     const devs = [...new Set(brewerDevs[row.id] || [])].join(', ') || '—';
     const bg = i % 2 === 1 ? 'background:var(--bg)' : '';
-    out += '<div style="display:grid;grid-template-columns:1fr 36px 36px 52px 52px 1fr;padding:.5rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
+    out += '<div style="display:grid;grid-template-columns:1fr 36px 36px 52px 52px 1fr;column-gap:12px;padding:.5rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
       + '<span style="font-size:13px;font-weight:600;color:var(--txt)">' + esc(row.name) + '</span>'
       + '<span style="font-size:12px;text-align:right;color:var(--txt2)">' + row.p + '</span>'
       + '<span style="font-size:12px;text-align:right;color:var(--txt2)">' + row.w + '</span>'
       + '<span style="font-size:12px;text-align:right;color:var(--txt2)">' + row.votes + '</span>'
       + '<span style="font-size:12px;font-weight:700;text-align:right;color:var(--gn)">' + row.pts + '</span>'
-      + '<span style="font-size:11px;color:var(--txt3)">' + esc(devs) + '</span>'
+      + '<span style="font-size:11px;color:var(--txt3);padding-left:.25rem">' + esc(devs) + '</span>'
       + '</div>';
   });
   out += '</div></div>';
@@ -864,9 +886,9 @@ function rReport() {
 
 function exportReportCSV() {
   const st = calcStandings();
-  let csv = 'Pos,Brewer,P,W,Votes,Pts\n';
+  let csv = 'Pos,Brewer,P,1st,2nd,3rd,Votes,Pts\n';
   st.forEach((r, i) => {
-    csv += (i + 1) + ',' + r.name.replace(/,/g, '') + ',' + r.p + ',' + r.w + ',' + r.votes + ',' + r.pts + '\n';
+    csv += (i + 1) + ',' + r.name.replace(/,/g, '') + ',' + r.p + ',' + r.w + ',' + r.s2 + ',' + r.s3 + ',' + r.votes + ',' + r.pts + '\n';
   });
   const devMatchCount = {}, devWinCount = {};
   S.matches.filter(m => m.done).forEach(m => {
@@ -901,7 +923,7 @@ function rAudienceLbHTML() {
   const medals = ['#c9a227','#9ca3af','#b07245'];
   let html = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
     + '<thead><tr style="background:#f1f5f9">'
-    + ['Pos','Brewer','P','W','Vts','Pts'].map((h, i) =>
+    + ['Pos','Brewer','P','1st','2nd','3rd','Vts','Pts'].map((h, i) =>
         '<th style="padding:.35rem .6rem;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;text-align:' + (i > 1 ? 'right' : 'left') + '">' + h + '</th>').join('')
     + '</tr></thead><tbody>';
   st.forEach((row, i) => {
@@ -915,6 +937,8 @@ function rAudienceLbHTML() {
       + '<td style="padding:.4rem .6rem;font-weight:' + (isTop3 ? '700' : '500') + ';color:#1e293b">' + esc(row.name) + '</td>'
       + '<td style="padding:.4rem .6rem;text-align:right;color:#475569">' + row.p + '</td>'
       + '<td style="padding:.4rem .6rem;text-align:right;color:#475569">' + row.w + '</td>'
+      + '<td style="padding:.4rem .6rem;text-align:right;color:#475569">' + row.s2 + '</td>'
+      + '<td style="padding:.4rem .6rem;text-align:right;color:#475569">' + row.s3 + '</td>'
       + '<td style="padding:.4rem .6rem;text-align:right;color:#475569">' + row.votes + '</td>'
       + '<td style="padding:.4rem .6rem;text-align:right;font-weight:700;color:#0b7a52">' + row.pts + '</td>'
       + '</tr>';
@@ -1227,6 +1251,47 @@ function rScoringBody(m, stage) {
         + remaining.map(cupId => '<option value="' + cupId + '"' + (val === cupId ? ' selected' : '') + '>' + esc(brewerName(cupId)) + '’s cup</option>').join('')
         + '</select></div>';
     });
+    out += '</div>';
+  }
+
+  // ── Tietop revote (top two tied, third eliminated) ──
+  if (stage === 'tietop') {
+    const tieTally = {};
+    ids.forEach(id => { tieTally[id] = 0; });
+    Object.values(m.votes).forEach(cupId => { if (tieTally[cupId] !== undefined) tieTally[cupId]++; });
+    if (m.isFinal && m.judgeVotes) m.judgeVotes.forEach(cupId => { if (tieTally[cupId] !== undefined) tieTally[cupId]++; });
+    const tieSorted = [...ids].sort((a, b) => tieTally[b] - tieTally[a]);
+    const tiedPair = [tieSorted[0], tieSorted[1]];
+    const eliminated = tieSorted[2];
+    const tv = tieTally[tiedPair[0]];
+    out += '<div class="sc-section"><div class="sc-section-title">↺ Revote — tie for 1st place</div>'
+      + '<p class="hint" style="margin-bottom:.75rem">'
+      + esc(brewerName(tiedPair[0])) + ' and ' + esc(brewerName(tiedPair[1]))
+      + ' are tied with ' + tv + (tv === 1 ? ' vote' : ' votes') + ' each. '
+      + esc(brewerName(eliminated)) + ' is eliminated to 3rd place. '
+      + 'All ' + (m.isFinal ? '5' : ids.length) + ' voters revote between the remaining 2 cups.'
+      + '</p>';
+    ids.forEach(voterId => {
+      const val = m.revote ? (m.revote[voterId] || '') : '';
+      out += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+        + '<span style="font-size:12px;font-weight:700;width:130px;color:var(--txt2)">' + esc(brewerName(voterId)) + '</span>'
+        + '<select id="sc-rv-' + m.id + '-' + voterId + '" style="font-size:12px;padding:4px 8px;border-radius:var(--rad-s);border:1.5px solid var(--border);background:var(--surface)">'
+        + '<option value="">— pick a cup —</option>'
+        + tiedPair.map(cupId => '<option value="' + cupId + '"' + (val === cupId ? ' selected' : '') + '>' + esc(brewerName(cupId)) + '’s cup</option>').join('')
+        + '</select></div>';
+    });
+    if (m.isFinal) {
+      for (let j = 0; j < 2; j++) {
+        const key = 'ext_' + j;
+        const val = m.revote ? (m.revote[key] || '') : '';
+        out += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+          + '<span style="font-size:12px;font-weight:700;width:130px;color:var(--am)">Judge ' + (j + 1) + '</span>'
+          + '<select id="sc-rv-' + m.id + '-' + key + '" style="font-size:12px;padding:4px 8px;border-radius:var(--rad-s);border:1.5px solid var(--am-bd);background:var(--am-bg)">'
+          + '<option value="">— pick a cup —</option>'
+          + tiedPair.map(cupId => '<option value="' + cupId + '"' + (val === cupId ? ' selected' : '') + '>' + esc(brewerName(cupId)) + '’s cup</option>').join('')
+          + '</select></div>';
+      }
+    }
     out += '</div>';
   }
 
