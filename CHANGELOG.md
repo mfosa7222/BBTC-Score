@@ -2,6 +2,26 @@
 
 ---
 
+## [4.0.0] — Liga Seduh · June 2026
+
+### liga/index.html (new module)
+- **Liga Seduh Bawah Tanah** — full round-robin league module
+- Setup: event info, brewer roster (add/remove), rounds with ceiling validation (`floor((N−1)/2)`), device list management
+- Schedule generator: randomised greedy with retry (up to 5000 attempts), no-repeat pair constraint, duo fairness rotation; N mod 3 determines triads/duos per round
+- Scoring: `resolveMatch()` pure function handles all cases — 2-1-0 clean, 3-0-0 sweep (revote for 2nd/3rd), 1-1-1 deadlock (tiebreaker judge + revote), duo 2-0/1-1, solo walkover; amber ⚖ TB badge on judge-broken matches
+- Standings: live league table sorted Pts → W → Votes; `--rank-1/-2/-3` medal tokens for top 3
+- Final tab: locked until all regular matches are done; auto-selects top 3; cutoff-tie detection triggers RPS picker with checkboxes; 5-vote pool (3 brewer + 2 external judge); Final result does not alter league table
+- Report tab: champion result, frozen league table, device usage summary (matches/wins per device, per-brewer device history), per-brewer season summary, CSV export
+- Audience view: `Audience.show()` with live standings and current-round matchups; inline hex throughout (no CSS var cascade into overlay)
+- Demo mode: 8-brewer mid-season state (2 of 3 rounds done) including a sweep, a deadlock, and a duo
+- JSON save/load with `_module:'liga'` guard; storage key `seduh_liga_v1`
+
+### index.html (dashboard)
+- Liga Seduh card set to `live:true`, `href:'liga/index.html'`
+- Module count updates to 3 live
+
+---
+
 ## [3.6.0] — Design System v4.1 (partial) · June 2026
 
 ### shared/theme.css

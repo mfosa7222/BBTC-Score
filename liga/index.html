@@ -22,9 +22,12 @@
 .dev-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:99px;font-size:12px;font-weight:600;color:var(--txt2)}
 .dev-chip-rm{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;line-height:1;padding:0 0 0 2px}
 /* Liga green accent */
-.liga-ac{width:4px;height:32px;background:#0b7a52;border-radius:2px;margin-left:4px}
-.btn-gn-lg{border-color:#0b7a52;color:#0b7a52}
-.btn-gn-lg:hover{background:#f0faf5}
+:root{--liga-ac:#0b7a52}
+.liga-ac{width:4px;height:32px;background:var(--liga-ac);border-radius:2px;margin-left:4px}
+.btn-gn-lg{border-color:var(--liga-ac);color:var(--liga-ac)}
+.btn-gn-lg:hover{background:var(--gn-bg)}
+.btn-pu-lg{border-color:var(--pu);color:var(--pu)}
+.btn-pu-lg:hover{background:var(--pu-bg)}
 /* Scoring card */
 .sc-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rad);margin-bottom:10px;overflow:hidden}
 .sc-card.active{border-color:var(--bl);box-shadow:0 0 0 3px var(--bl-bg)}
@@ -508,13 +511,14 @@ function rMain() {
   return '<div class="plat-hdr">'
     + '<a href="../index.html" class="plat-back">← Seduh Score</a>'
     + '<div class="liga-ac"></div>'
-    + '<div><div class="plat-hdr-sub" style="font-size:10px;color:#0b7a52;font-weight:700;letter-spacing:.15em;text-transform:uppercase">Seduh Score</div>'
+    + '<div><div class="plat-hdr-sub" style="font-size:10px;color:var(--liga-ac);font-weight:700;letter-spacing:.15em;text-transform:uppercase">Seduh Score</div>'
     + '<div class="plat-hdr-name">' + esc(S.eventName || 'Liga Seduh Bawah Tanah') + '</div></div>'
     + '<div class="hdr-btns">'
     + '<button class="hdr-btn btn-gn-lg" id="tmrbtn">⏱ Timer</button>'
     + '<button class="hdr-btn btn-gn-lg" id="audbtn">📺 Audience</button>'
     + '<button class="hdr-btn btn-gn-lg" id="savebtn">⬇ Save</button>'
     + '<button class="hdr-btn btn-gn-lg" id="loadbtn">⬆ Load</button>'
+    + '<button class="hdr-btn btn-pu-lg" id="demobtn">⚗ Demo</button>'
     + '<button class="hdr-btn btn-rd" id="resetbtn">↺ Reset</button>'
     + '</div></div>'
     + '<div class="tabs">'
@@ -525,7 +529,7 @@ function rMain() {
       : S.tab === 'schedule'  ? rSchedule()
       : S.tab === 'standings' ? rStandings()
       : S.tab === 'final'     ? rFinal()
-      :                         rPlaceholder('Report', 'Complete the season to generate the report.'))
+      :                         rReport())
     + '</div>';
 }
 
@@ -752,6 +756,293 @@ function rFinalChampion(finalMatch) {
     + 'The Final result does not change the league table. Season standings remain as recorded above.'
     + '</div>';
   return out;
+}
+
+/* ── Report tab ── */
+
+function rReport() {
+  const anyDone = S.matches.some(m => !m.isFinal && m.done);
+  if (!anyDone) return rPlaceholder('Report', 'Complete at least one match to start the report.');
+
+  const standings = calcStandings();
+  const finalMatch = S.matches.find(m => m.isFinal && m.done);
+  const medalColors = ['var(--rank-1,#c9a227)','var(--rank-2,#9ca3af)','var(--rank-3,#b07245)'];
+  let out = '';
+
+  // ── Champion ──
+  if (finalMatch && finalMatch.result) {
+    out += '<div class="card"><div class="card-hdr" style="color:var(--gn)">🏆 Final champion</div><div class="card-body">';
+    out += rFinalChampion(finalMatch);
+    out += '</div></div>';
+  } else if (allRegularDone() && !finalMatch) {
+    out += '<div style="padding:.75rem 1rem;background:var(--am-bg);border:1.5px solid var(--am-bd);border-radius:var(--rad-s);font-size:13px;color:var(--am);margin-bottom:1rem">The Final has not yet been played. Scores below reflect the regular season.</div>';
+  }
+
+  // ── League table ──
+  out += '<div class="card"><div class="card-hdr">Season standings</div><div class="card-body" style="padding:0">';
+  out += '<div style="display:grid;grid-template-columns:36px 1fr 36px 36px 52px 52px;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
+    + ['Pos','Brewer','P','W','Votes','Pts'].map((h, i) =>
+        '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)' + (i > 1 ? ';text-align:right' : '') + '">' + h + '</span>').join('')
+    + '</div>';
+  standings.forEach((row, i) => {
+    const isTop3 = i < 3;
+    const medal = isTop3
+      ? '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + medalColors[i] + ';vertical-align:middle"></span>'
+      : '';
+    const pos = isTop3 ? medal : '<span style="font-size:11px;color:var(--txt3);font-weight:700">' + (i + 1) + '</span>';
+    const bg = i === 0 ? 'background:var(--gn-bg)' : (i % 2 === 1 ? 'background:var(--bg)' : '');
+    out += '<div style="display:grid;grid-template-columns:36px 1fr 36px 36px 52px 52px;padding:.55rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
+      + '<span style="display:flex;align-items:center;justify-content:center">' + pos + '</span>'
+      + '<span style="font-size:13px;font-weight:' + (isTop3 ? '700' : '600') + ';color:var(--txt)">' + esc(row.name) + '</span>'
+      + ['p','w','votes','pts'].map(k =>
+          '<span style="font-size:13px;font-weight:700;text-align:right;color:' + (k === 'pts' ? 'var(--gn)' : 'var(--txt2)') + '">' + row[k] + '</span>').join('')
+      + '</div>';
+  });
+  out += '</div></div>';
+
+  // ── Device usage ──
+  const devMatchCount = {}, devWinCount = {}, brewerDevs = {};
+  S.brewers.forEach(b => { brewerDevs[b.id] = []; });
+  S.matches.filter(m => m.done).forEach(m => {
+    const seen = new Set();
+    m.brewerIds.forEach(id => {
+      const dev = m.devices && m.devices[id];
+      if (dev) { seen.add(dev); if (brewerDevs[id]) brewerDevs[id].push(dev); }
+    });
+    seen.forEach(d => { devMatchCount[d] = (devMatchCount[d] || 0) + 1; });
+    if (m.result && m.devices) {
+      const wd = m.devices[m.result.placements[0]];
+      if (wd) devWinCount[wd] = (devWinCount[wd] || 0) + 1;
+    }
+  });
+  const devList = Object.keys(devMatchCount).sort((a, b) => devMatchCount[b] - devMatchCount[a]);
+
+  if (devList.length > 0) {
+    out += '<div class="card"><div class="card-hdr">Device usage</div><div class="card-body" style="padding:0">';
+    out += '<div style="display:grid;grid-template-columns:1fr 72px 72px;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
+      + ['Device','Matches','Wins'].map((h, i) =>
+          '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)' + (i > 0 ? ';text-align:right' : '') + '">' + h + '</span>').join('')
+      + '</div>';
+    devList.forEach((dev, i) => {
+      const bg = i % 2 === 1 ? 'background:var(--bg)' : '';
+      out += '<div style="display:grid;grid-template-columns:1fr 72px 72px;padding:.5rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
+        + '<span style="font-size:13px;color:var(--txt)">' + esc(dev) + '</span>'
+        + '<span style="font-size:13px;font-weight:700;text-align:right;color:var(--txt2)">' + devMatchCount[dev] + '</span>'
+        + '<span style="font-size:13px;font-weight:700;text-align:right;color:var(--gn)">' + (devWinCount[dev] || 0) + '</span>'
+        + '</div>';
+    });
+    out += '</div></div>';
+  }
+
+  // ── Per-brewer summary ──
+  out += '<div class="card"><div class="card-hdr">Per-brewer summary</div><div class="card-body" style="padding:0">';
+  out += '<div style="display:grid;grid-template-columns:1fr 36px 36px 52px 52px 1fr;padding:.5rem .75rem;background:var(--bg);border-bottom:1.5px solid var(--border)">'
+    + ['Brewer','P','W','Vts','Pts','Devices'].map((h, i) =>
+        '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)' + (i > 0 && i < 5 ? ';text-align:right' : '') + '">' + h + '</span>').join('')
+    + '</div>';
+  standings.forEach((row, i) => {
+    const devs = [...new Set(brewerDevs[row.id] || [])].join(', ') || '—';
+    const bg = i % 2 === 1 ? 'background:var(--bg)' : '';
+    out += '<div style="display:grid;grid-template-columns:1fr 36px 36px 52px 52px 1fr;padding:.5rem .75rem;border-bottom:1px solid var(--border);' + bg + '">'
+      + '<span style="font-size:13px;font-weight:600;color:var(--txt)">' + esc(row.name) + '</span>'
+      + '<span style="font-size:12px;text-align:right;color:var(--txt2)">' + row.p + '</span>'
+      + '<span style="font-size:12px;text-align:right;color:var(--txt2)">' + row.w + '</span>'
+      + '<span style="font-size:12px;text-align:right;color:var(--txt2)">' + row.votes + '</span>'
+      + '<span style="font-size:12px;font-weight:700;text-align:right;color:var(--gn)">' + row.pts + '</span>'
+      + '<span style="font-size:11px;color:var(--txt3)">' + esc(devs) + '</span>'
+      + '</div>';
+  });
+  out += '</div></div>';
+
+  // ── CSV export ──
+  out += '<div style="display:flex;gap:10px">'
+    + '<button class="btn-o" id="report-csv">⬇ Export CSV</button>'
+    + '</div>';
+
+  return out;
+}
+
+function exportReportCSV() {
+  const st = calcStandings();
+  let csv = 'Pos,Brewer,P,W,Votes,Pts\n';
+  st.forEach((r, i) => {
+    csv += (i + 1) + ',' + r.name.replace(/,/g, '') + ',' + r.p + ',' + r.w + ',' + r.votes + ',' + r.pts + '\n';
+  });
+  const devMatchCount = {}, devWinCount = {};
+  S.matches.filter(m => m.done).forEach(m => {
+    const seen = new Set();
+    m.brewerIds.forEach(id => { const d = m.devices && m.devices[id]; if (d) seen.add(d); });
+    seen.forEach(d => { devMatchCount[d] = (devMatchCount[d] || 0) + 1; });
+    if (m.result && m.devices) {
+      const wd = m.devices[m.result.placements[0]];
+      if (wd) devWinCount[wd] = (devWinCount[wd] || 0) + 1;
+    }
+  });
+  csv += '\nDevice,Matches,Wins\n';
+  Object.keys(devMatchCount).sort().forEach(d => {
+    csv += d.replace(/,/g, '') + ',' + devMatchCount[d] + ',' + (devWinCount[d] || 0) + '\n';
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (S.eventName || 'liga-seduh').replace(/\s+/g, '-').toLowerCase() + '-report.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ── Audience view helpers (inline hex only — CSS vars don't cascade into overlay) ── */
+
+function rAudienceLbHTML() {
+  const st = calcStandings();
+  if (!S.matches.some(m => !m.isFinal && m.done)) {
+    return '<div style="text-align:center;padding:2.5rem;color:#9ca3af;font-size:13px">No matches scored yet.</div>';
+  }
+  const medals = ['#c9a227','#9ca3af','#b07245'];
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    + '<thead><tr style="background:#f1f5f9">'
+    + ['Pos','Brewer','P','W','Vts','Pts'].map((h, i) =>
+        '<th style="padding:.35rem .6rem;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;text-align:' + (i > 1 ? 'right' : 'left') + '">' + h + '</th>').join('')
+    + '</tr></thead><tbody>';
+  st.forEach((row, i) => {
+    const isTop3 = i < 3;
+    const dot = isTop3
+      ? '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + medals[i] + ';vertical-align:middle"></span>'
+      : '<span style="font-size:11px;color:#64748b;font-weight:700">' + (i + 1) + '</span>';
+    const bg = i === 0 ? '#f0fdf4' : (i % 2 === 1 ? '#f8fafc' : '#ffffff');
+    html += '<tr style="background:' + bg + ';border-bottom:1px solid #e2e8f0">'
+      + '<td style="padding:.4rem .6rem;text-align:center">' + dot + '</td>'
+      + '<td style="padding:.4rem .6rem;font-weight:' + (isTop3 ? '700' : '500') + ';color:#1e293b">' + esc(row.name) + '</td>'
+      + '<td style="padding:.4rem .6rem;text-align:right;color:#475569">' + row.p + '</td>'
+      + '<td style="padding:.4rem .6rem;text-align:right;color:#475569">' + row.w + '</td>'
+      + '<td style="padding:.4rem .6rem;text-align:right;color:#475569">' + row.votes + '</td>'
+      + '<td style="padding:.4rem .6rem;text-align:right;font-weight:700;color:#0b7a52">' + row.pts + '</td>'
+      + '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+function rAudienceHistHTML() {
+  const reg = S.matches.filter(m => !m.isFinal);
+  if (reg.length === 0) {
+    return '<div style="text-align:center;padding:2.5rem;color:#9ca3af;font-size:13px">No matches yet.</div>';
+  }
+  const pending = reg.filter(m => !m.done);
+  const currentRound = pending.length > 0
+    ? Math.min(...pending.map(m => m.round))
+    : Math.max(...reg.map(m => m.round));
+
+  let html = '<div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#0b7a52;margin-bottom:.5rem;padding-left:8px;border-left:3px solid #0b7a52">Round ' + currentRound + '</div>';
+
+  reg.filter(m => m.round === currentRound).forEach(m => {
+    const done = m.done && m.result;
+    const names = m.brewerIds.map(id => esc(brewerName(id))).join(' · ');
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:.4rem .6rem;border-radius:6px;margin-bottom:4px;background:' + (done ? '#f0fdf4' : '#f8fafc') + ';border:1px solid ' + (done ? '#bbf7d0' : '#e2e8f0') + '">'
+      + '<span style="color:' + (done ? '#16a34a' : '#94a3b8') + ';font-weight:700">' + (done ? '✓' : '·') + '</span>'
+      + '<span style="font-size:13px;color:#1e293b">' + names + '</span>';
+    if (done) {
+      html += '<span style="font-size:12px;font-weight:700;color:#0b7a52;margin-left:auto">' + esc(brewerName(m.result.placements[0])) + ' won</span>';
+    }
+    html += '</div>';
+  });
+
+  const recent = reg
+    .filter(m => m.done && m.round !== currentRound)
+    .sort((a, b) => b.round - a.round || Number(b.id) - Number(a.id))
+    .slice(0, 3);
+
+  if (recent.length > 0) {
+    html += '<div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin:1rem 0 .4rem">Recent results</div>';
+    recent.forEach(m => {
+      const winner = m.result ? m.result.placements[0] : null;
+      const names = m.brewerIds.map(id => esc(brewerName(id))).join(' · ');
+      html += '<div style="padding:.3rem .5rem;border-radius:5px;margin-bottom:3px;background:#f8fafc;border:1px solid #e2e8f0;font-size:12px">'
+        + '<span style="color:#1e293b">' + names + '</span>'
+        + (winner ? ' — <strong style="color:#0b7a52">' + esc(brewerName(winner)) + '</strong>' : '')
+        + (m.result && m.result.deadlock ? ' <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px">⚖ TB</span>' : '')
+        + '</div>';
+    });
+  }
+  return html;
+}
+
+/* ── Demo ── */
+
+function buildLigaDemo() {
+  return {
+    eventName: 'Liga Seduh Bawah Tanah',
+    eventDate: '14 June 2026',
+    eventVenue: 'Grey Matter Coffee Werks, BSB',
+    brewers: [
+      {id:'0',name:'Aliya'}, {id:'1',name:'Budi'}, {id:'2',name:'Cinta'},
+      {id:'3',name:'Darwisyah'}, {id:'4',name:'Eza'}, {id:'5',name:'Faridah'},
+      {id:'6',name:'Ghazi'}, {id:'7',name:'Hafiz'},
+    ],
+    devices: [...DEVICE_DEFAULTS],
+    rounds: 3,
+    scheduleLocked: true,
+    tab: 'standings',
+    scoringMatchId: null,
+    finalBrewerIds: null,
+    matches: [
+      // Round 1 — all done
+      // Match 0: triad [0,1,2] — Case A clean 2-1-0
+      { id:'0', round:1, type:'triad', isFinal:false, brewerIds:['0','1','2'],
+        devices:{'0':'V60','1':'AeroPress','2':'Kalita Wave'},
+        votes:{'0':'0','1':'0','2':'1'}, judgeVote:null, revote:null, judgeVotes:[],
+        result:{placements:['0','1','2'], points:{'0':3,'1':1,'2':0}, votesRec:{'0':2,'1':1,'2':0}, deadlock:false},
+        done:true },
+      // Match 1: triad [3,4,5] — Case B sweep 3-0-0
+      { id:'1', round:1, type:'triad', isFinal:false, brewerIds:['3','4','5'],
+        devices:{'3':'Orea','4':'Hario Switch','5':'Chemex'},
+        votes:{'3':'3','4':'3','5':'3'}, judgeVote:null, revote:{'3':'4','4':'4','5':'4'}, judgeVotes:[],
+        result:{placements:['3','4','5'], points:{'3':3,'4':1,'5':0}, votesRec:{'3':3,'4':0,'5':0}, deadlock:false},
+        done:true },
+      // Match 2: duo [6,7] — clean 2-0
+      { id:'2', round:1, type:'duo', isFinal:false, brewerIds:['6','7'],
+        devices:{'6':'Clever Dripper','7':'French Press'},
+        votes:{'6':'6','7':'6'}, judgeVote:null, revote:null, judgeVotes:[],
+        result:{placements:['6','7'], points:{'6':3,'7':1}, votesRec:{'6':2,'7':0}, deadlock:false},
+        done:true },
+      // Round 2 — all done
+      // Match 3: triad [0,3,6] — Case C 1-1-1 deadlock, judge picks Aliya
+      { id:'3', round:2, type:'triad', isFinal:false, brewerIds:['0','3','6'],
+        devices:{'0':'V60','3':'Origami','6':'Clever Dripper'},
+        votes:{'0':'3','3':'6','6':'0'}, judgeVote:'0', revote:{'0':'3','3':'3','6':'3'}, judgeVotes:[],
+        result:{placements:['0','3','6'], points:{'0':3,'3':1,'6':0}, votesRec:{'0':2,'3':1,'6':1}, deadlock:true},
+        done:true },
+      // Match 4: triad [1,4,7] — Case A clean
+      { id:'4', round:2, type:'triad', isFinal:false, brewerIds:['1','4','7'],
+        devices:{'1':'AeroPress','4':'Hario Switch','7':'French Press'},
+        votes:{'1':'1','4':'1','7':'4'}, judgeVote:null, revote:null, judgeVotes:[],
+        result:{placements:['1','4','7'], points:{'1':3,'4':1,'7':0}, votesRec:{'1':2,'4':1,'7':0}, deadlock:false},
+        done:true },
+      // Match 5: duo [2,5] — clean 2-0
+      { id:'5', round:2, type:'duo', isFinal:false, brewerIds:['2','5'],
+        devices:{'2':'Kalita Wave','5':'Chemex'},
+        votes:{'2':'2','5':'2'}, judgeVote:null, revote:null, judgeVotes:[],
+        result:{placements:['2','5'], points:{'2':3,'5':1}, votesRec:{'2':2,'5':0}, deadlock:false},
+        done:true },
+      // Round 3 — pending
+      { id:'6', round:3, type:'triad', isFinal:false, brewerIds:['0','5','7'],
+        devices:{}, votes:{}, judgeVote:null, revote:null, judgeVotes:[], result:null, done:false },
+      { id:'7', round:3, type:'duo', isFinal:false, brewerIds:['1','3'],
+        devices:{}, votes:{}, judgeVote:null, revote:null, judgeVotes:[], result:null, done:false },
+      { id:'8', round:3, type:'triad', isFinal:false, brewerIds:['2','4','6'],
+        devices:{}, votes:{}, judgeVote:null, revote:null, judgeVotes:[], result:null, done:false },
+    ],
+    _mid: 9, _bid: 8,
+  };
+}
+
+function loadLigaDemo() {
+  const d = buildLigaDemo();
+  S = { ...DEFAULT_STATE(), ...d };
+  mid = d._mid;
+  bid = d._bid;
+  save();
+  render();
 }
 
 function rSchedule() {
@@ -1032,20 +1323,32 @@ function rSetup() {
     + '</div>';
 }
 
-/* ── Audience (stub — full wiring in Phase 5) ── */
+/* ── Audience view ── */
 function showAudience() {
-  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  $('aud-ts').innerHTML = esc(S.eventName || 'Liga Seduh') + '<br>' + now;
-  $('aud-module-tag').textContent = 'Season';
-  $('aud-lb').innerHTML = '<div style="text-align:center;padding:2.5rem;color:#9CA3AF">No data yet.</div>';
-  $('aud-hist').innerHTML = '<div style="text-align:center;padding:2.5rem;color:#9CA3AF">No matches yet.</div>';
-  $('aud-overlay').classList.add('show');
+  const reg = S.matches.filter(m => !m.isFinal);
+  const pending = reg.filter(m => !m.done);
+  const finalMatch = S.matches.find(m => m.isFinal);
+  let moduleTag = 'Season';
+  if (finalMatch) {
+    moduleTag = 'Final';
+  } else if (reg.length > 0) {
+    const cur = pending.length > 0
+      ? Math.min(...pending.map(m => m.round))
+      : Math.max(...reg.map(m => m.round));
+    moduleTag = 'Round ' + cur;
+  }
+  Audience.show({
+    title: S.eventName || 'Liga Seduh Bawah Tanah',
+    moduleTag,
+    lbHTML: rAudienceLbHTML(),
+    histHTML: rAudienceHistHTML(),
+  });
 }
 
 /* ── Bind ── */
 function bind() {
   on('tmrbtn', 'click', () => Timer.open());
-  on('aud-close', 'click', () => $('aud-overlay').classList.remove('show'));
+  Audience.init();
   on('audbtn', 'click', showAudience);
 
   // Tabs
@@ -1060,6 +1363,10 @@ function bind() {
       STORE.clear(); mid = 0; bid = 0; S = DEFAULT_STATE(); render();
     }
   });
+  on('demobtn', 'click', () => {
+    if (confirm('Load the Liga Seduh demo? This will replace your current data.')) loadLigaDemo();
+  });
+  on('report-csv', 'click', exportReportCSV);
 
   // Event info
   [['ev-name','eventName'],['ev-date','eventDate'],['ev-venue','eventVenue']].forEach(([id, key]) => {
